@@ -1,0 +1,11 @@
+# Directories
+data/
+saves/
+tmp/
+__pycache__/
+fenv/
+.ipynb_checkpoints/
+numpy_files/
+
+# Files
+.DS_Store
