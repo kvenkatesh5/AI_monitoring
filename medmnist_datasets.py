@@ -78,12 +78,6 @@ def debug():
     d = AbnominalCTDataset(cfg["data_dir"], "train", label_mode="cheap-supervised")
     print(d[60000])
 
-def calc():
-    with open("cfg.json", "r") as f:
-        cfg = json.load(f)
-    d = AbnominalCTDataset(cfg["data_dir"], "train", label_mode="cheap-supervised")
-    # Calculate per-channel (here we have only 1 channel) mean and stdev
-
 
 if __name__ == "__main__":
     debug()
