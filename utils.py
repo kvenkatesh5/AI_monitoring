@@ -104,3 +104,15 @@ class TwoCropTransform:
 
     def __call__(self, x):
         return [self.transform(x), self.transform(x)]
+
+"""Save model (source: https://github.com/HobbitLong/SupContrast/blob/master/util.py)"""
+def save_model(model, optimizer, epch, hparams, fn):
+    print("=> Saving!")
+    state = {
+        "model": model.state_dict(),
+        "hparams": hparams,
+        "optimizer": optimizer.state_dict(),
+        "epoch": epch
+    }
+    torch.save(state, fn)
+    del state
