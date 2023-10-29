@@ -2,17 +2,27 @@
 import argparse
 import os
 import time
+import json
 
 from tqdm import tqdm
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from torchvision.models import resnet18
 from torchvision import transforms
+
 from medmnist_datasets import AbnominalCTDataset
 from networks.resnet_big import SupConResNet
 from utils import SupConLoss, TwoCropTransform
+from medmnist_datasets import AbnominalCTDataset
+from features import EvaluateFeatureSpace
+from features import matrixify
+from utils import save_model
+
+with open("cfg.json", "r") as f:
+    cfg = json.load(f)
 
 def parse_options():
     parser = argparse.ArgumentParser('argument for training')
@@ -128,19 +138,25 @@ def parse_options():
 
     return options
 
+"""Load dataset with default transformations (no two-crop)"""
+def load_default_data(opt):
+    # Baseline tr
+    data_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[.5], std=[.5])
+    ])
 
-def load_data(opt):
     """training dataset"""
     train_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=opt["positive_dataset"], tfms=opt["data_transform"],
+                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
                         split="train")
     """val dataset"""
     val_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=opt["positive_dataset"], tfms=opt["data_transform"],
+                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
                         split="val")
     """testing dataset"""
     test_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=opt["positive_dataset"], tfms=opt["data_transform"],
+                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
                         split="test")
     
     return train_set, val_set, test_set
@@ -234,23 +250,23 @@ def train_one_epoch(tr_ldr, vl_ldr, model, criterion, optimizer, epoch, opt):
             val_loss += batch_loss.item() * bsz
     val_loss = val_loss / len(vl_ldr)
 
-    return train_loss, val_loss 
+    return model, optimizer, train_loss, val_loss 
 
 
 def train_contrastive(model: torch.nn.Module, criterion: torch.nn.Module, options: dict):
     # make contrastive datasets (two crop transform)
-    aug_transform = transforms.Compose([
+    cnn_transform = transforms.Compose([
         transforms.RandomResizedCrop(size=28),
         transforms.RandomRotation(10),
         options["data_transform"]
     ])
     ctr_train_set = AbnominalCTDataset(data_dir=options["data_dir"], label_mode="cheap-supervised",
                         positive_dataset=options["positive_dataset"],
-                        tfms=TwoCropTransform(aug_transform), split="train")
+                        tfms=TwoCropTransform(cnn_transform), split="train")
     ctr_train_loader = DataLoader(ctr_train_set, batch_size=options["batch_size"], shuffle=True)
     ctr_val_set = AbnominalCTDataset(data_dir=options["data_dir"], label_mode="cheap-supervised",
                         positive_dataset=options["positive_dataset"],
-                        tfms=TwoCropTransform(aug_transform), split="val")
+                        tfms=TwoCropTransform(cnn_transform), split="val")
     ctr_val_loader = DataLoader(ctr_val_set, batch_size=options["batch_size"], shuffle=True)
 
     # tracking variables
@@ -301,7 +317,7 @@ def train_contrastive(model: torch.nn.Module, criterion: torch.nn.Module, option
     for epoch in range(1, options["max_epochs"]+1):
         # training
         time1 = time.time()
-        train_loss, val_loss = train_one_epoch(ctr_train_loader, ctr_val_loader,\
+        model, optimizer, train_loss, val_loss = train_one_epoch(ctr_train_loader, ctr_val_loader,\
                                                model, criterion, optimizer, epoch, options)
         print('Epoch {} | Training Loss {:.4f} | Validation Loss {:.4f} | Total Time {:.2f}'.\
               format(epoch, train_loss, val_loss, time.time() - time1))
@@ -328,6 +344,47 @@ def train_contrastive(model: torch.nn.Module, criterion: torch.nn.Module, option
             print('...Early breaking!')
             break
 
+    return model
+
+class EvaluateCTR(EvaluateFeatureSpace):
+    def get_features(self, dset):
+        self.model.eval()
+        features = []
+        ldr = DataLoader(dset, batch_size=32)
+        for j, (images, labels) in enumerate(tqdm(ldr)):
+            with torch.no_grad():
+                images = torch.cat([images, images, images], dim=1)
+                images = images.to(self.device)
+                outputs = self.model.encoder(images)
+                norm_outputs = F.normalize(outputs)
+                features.append(norm_outputs.detach().cpu().numpy())
+        return np.vstack(features)
+
+"""Load contrastive model"""
+def load_ctr(pth, device):
+    d = torch.load(pth)
+    model = SupConResNet(name=d["opt"]["model"], head=d["opt"]["projection"])
+    model.load_state_dict(d["model"])
+    model = model.to(device)
+    return model
+
+"""Extract features from trained contrastive model"""
+def extract_features(model, hparams, train_set, test_set):
+    # Matrixify datasets
+    Xtr, ytr = matrixify(train_set)
+    Xtt, ytt = matrixify(test_set)
+    # Evaluation object
+    evl = EvaluateCTR(model, hparams["device"], ytr, ytt, train_set, test_set, subsample=True)
+    # Get features
+    ctr_Ftr = evl.original_attrs["training_features"]
+    ctr_Ftt = evl.original_attrs["testing_features"]
+    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/ctr_features"),
+        ctr_Ftr=ctr_Ftr,
+        ctr_Ftt=ctr_Ftt,
+    )
+    # return features
+    return ctr_Ftr, ctr_Ftt
+
 
 def main():
     # extract options
@@ -338,7 +395,11 @@ def main():
     model, loss_fxn = set_model(opt)
 
     # contrastive training
-    train_contrastive(model, loss_fxn, opt)
+    trained_model = train_contrastive(model, loss_fxn, opt)
+
+    # extract features
+    train_set, val_set, test_set = load_default_data(opt)
+    ctr_Ftr, ctr_Ftt = extract_features(trained_model, opt, train_set, test_set)
 
 if __name__ == "__main__":
     main()
