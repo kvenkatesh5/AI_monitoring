@@ -2,6 +2,8 @@ import json
 import os
 import random
 
+import numpy as np
+from tqdm import tqdm
 import medmnist
 from medmnist import INFO, Evaluator
 from torchvision import datasets, transforms
@@ -71,6 +73,43 @@ class AbnominalCTDataset(Dataset):
     
     def get_positive_name(self):
         return self.positive_dataset
+
+"""Load dataset with default transformations"""
+def load_default_data(opt):
+    # Baseline transform
+    data_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[.5], std=[.5])
+    ])
+
+    """training dataset"""
+    train_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
+                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
+                        split="train")
+    """val dataset"""
+    val_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
+                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
+                        split="val")
+    """testing dataset"""
+    test_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
+                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
+                        split="test")
+    
+    return train_set, val_set, test_set
+
+
+"""Matrixify fxn"""
+def matrixify(dset, label_mode="cheap-supervised"):
+    if label_mode!="cheap-supervised":
+        raise NotImplementedError("label mode not implemented: {}".format(label_mode))
+    X = np.empty((len(dset), 28*28))
+    y = np.empty((len(dset)))
+    for i in tqdm(range(len(dset))):
+        image, label = dset[i]
+        X[i,:] = image.flatten()
+        y[i] = int(label)
+    y = y.astype(np.int32)
+    return X,y
 
 def debug():
     with open("cfg.json", "r") as f:
