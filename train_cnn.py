@@ -10,40 +10,17 @@ import time
 import numpy as np
 from tqdm import tqdm
 import torch
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.models import resnet18
+from sklearn.metrics import roc_auc_score
 
 from medmnist_datasets import AbnominalCTDataset
-from features import EvaluateFeatureSpace
-from features import matrixify
+from medmnist_datasets import matrixify
 from utils import save_model
 
 with open("cfg.json", "r") as f:
     cfg = json.load(f)
-
-"""Forward hook for ResNet"""
-cnn_layers = {}
-def get_inputs(name):
-    def hook(model, inpt, output):
-        cnn_layers[name] = inpt[0].detach()
-    return hook
-
-"""Load model"""
-def load_cnn(pth):
-    print("Loading! <= {}".format(os.path.basename(pth)))
-    state = torch.load(pth)
-    hparams = state["hparams"]
-    model = resnet18(pretrained=hparams["pretrained"])
-    model.fc = torch.nn.Sequential(
-        torch.nn.Linear(in_features=512, out_features=2),
-        torch.nn.Sigmoid()
-    )
-    model.load_state_dict(state["model"])
-    h = model.fc.register_forward_hook(get_inputs('fts'))
-    model = model.to(hparams["device"]) 
-    return model
 
 """Train CNN"""
 def train_cnn(tr_set, vl_set, hparams):
@@ -56,11 +33,12 @@ def train_cnn(tr_set, vl_set, hparams):
         torch.nn.Linear(in_features=512, out_features=2),
         torch.nn.Sigmoid()
     )
-    h = model.fc.register_forward_hook(get_inputs('fts'))
-    model = model.to(hparams["device"])   
+    model = model.to(hparams["device"])
     # loss and optim
     classification_loss_fxn = torch.nn.BCELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=hparams["initial_lr"], weight_decay=hparams["weight_decay"])
+    optimizer = torch.optim.AdamW(model.parameters(),
+                                  lr=hparams["initial_lr"],
+                                  weight_decay=hparams["weight_decay"])
     # loop
     train_loss_history = []
     val_loss_history = []
@@ -91,12 +69,14 @@ def train_cnn(tr_set, vl_set, hparams):
             optimizer.step()
             # training loss
             train_loss += batch_loss.item() * n_images
-        train_loss = train_loss / tot_images
+        train_loss = train_loss / len(train_loader) # trying here with train loader
         train_loss_history.append(train_loss)
         # validation
         model.eval()
         val_loss = 0.0
         tot_images = 0
+        val_ys = []
+        val_yhats = []
         for i, (images, labels) in enumerate(tqdm(val_loader)):
             with torch.no_grad():
                 # number of images
@@ -113,51 +93,48 @@ def train_cnn(tr_set, vl_set, hparams):
                 # compute loss
                 batch_loss = classification_loss_fxn(outputs, targets)
                 val_loss += batch_loss.item() * n_images
-        val_loss = val_loss / tot_images
+                # compute AUROC
+                val_ys.extend(targets.detach().cpu().argmax(dim=1).tolist())
+                val_yhats.extend(outputs[:,1].detach().squeeze().cpu().tolist())
+        val_loss = val_loss / len(val_loader) # trying here with val loader
         val_loss_history.append(val_loss)
-        print("Epoch {} | Training Loss {:.4f} | Validation Loss {:.4f}".format(e, train_loss, val_loss))
-        # early breaking
+        val_auroc = roc_auc_score(val_ys, val_yhats)
+        print("Epoch {} | Training Loss {:.4f} | Validation Loss {:.4f} | Validation AUROC {:.4f}".format(e, train_loss, val_loss, val_auroc))
+        
+        # saving best model
         if best_loss - val_loss > hparams["loss_threshold"]:
             stopping_step = 0
             best_loss = val_loss
             save_model(model, optimizer, e, hparams, hparams["save_path"])
         else:
             stopping_step += 1
+        # early breaking
         if stopping_step >= hparams["break_patience"]:
             print("...Early breaking!")
             break
     print("Model saved at: {}".format(hparams["save_path"]))
-    return model, h, train_loss_history, val_loss_history
-
-"""Evaluate CNN"""
-class EvaluateCNN(EvaluateFeatureSpace):
-    def get_features(self, dset):
-        self.model.eval()
-        features = []
-        ldr = DataLoader(dset, batch_size=32)
-        for j, (images, labels) in enumerate(tqdm(ldr)):
-            with torch.no_grad():
-                images = torch.cat([images, images, images], dim=1)
-                images = images.to(self.device)
-                features.append(cnn_layers['fts'].detach().cpu().numpy())
-        return np.vstack(features)
+    return model, train_loss_history, val_loss_history
 
 def parse_options():
     parser = argparse.ArgumentParser('argument for training')
 
     parser.add_argument('--batch_size', type=int, default=256,
                         help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=16,
-                        help='num of workers to use')
     parser.add_argument('--max_epochs', type=int, default=1000,
                         help='number of training epochs')
 
     # optimization
+    parser.add_argument('--scheduler_family', type=str, default="drop",
+                        choices=["drop", "step", "no-scheduler"], help='kind of lr scheduler')
     parser.add_argument('--learning_rate', type=float, default=0.05,
                         help='learning rate')
+    parser.add_argument('--drop_factor', type=float, default=0.1,
+                        help='drop factor in lr scheduler')
+    parser.add_argument('--plateau_patience', type=int, default=3,
+                        help='patience in lr scheduler')
     parser.add_argument('--weight_decay', type=float, default=1e-4,
                         help='weight decay')
-    parser.add_argument('--loss-threshold', type=float, default=1e-4,
+    parser.add_argument('--loss_threshold', type=float, default=1e-4,
                         help='min change in loss to update best model')
     parser.add_argument('--break_patience', type=int, default=5,
                         help='early breaking patience')
@@ -194,6 +171,7 @@ def parse_options():
     if torch.cuda.is_available():
         device = 'cuda'
         dev_n = torch.cuda.device_count()
+    print(f"Device: {device} | # {dev_n}")
 
     # Make options dictionary
     options = {
@@ -205,35 +183,19 @@ def parse_options():
         "pretrained": opt.pretrained == 'y',
         "max_epochs": opt.max_epochs,
         "initial_lr": opt.learning_rate,
+        "scheduler_family": opt.scheduler_family,
+        "drop_factor": opt.drop_factor,
+        "plateau_patience": opt.plateau_patience,
         "weight_decay": opt.weight_decay,
         "loss_threshold": opt.loss_threshold,
         "break_patience": opt.break_patience,
         # Dataset
         "batch_size": opt.batch_size,
-        "num_workers": opt.num_workers,
         "positive_dataset": opt.positive_dataset,
         "shuffle": opt.shuffle == "y",
     }
 
     return options
-
-"""Extract features from trained CNN"""
-def extract_features(model, hparams, train_set, test_set):
-    # Matrixify datasets
-    Xtr, ytr = matrixify(train_set)
-    Xtt, ytt = matrixify(test_set)
-    # Evaluation object
-    evl = EvaluateCNN(model, hparams["device"], ytr, ytt, train_set, test_set, subsample=True)
-    # Get features
-    cnn_Ftr = evl.original_attrs["training_features"]
-    cnn_Ftt = evl.original_attrs["testing_features"]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/cnn_features"),
-        cnn_Ftr=cnn_Ftr,
-        cnn_Ftt=cnn_Ftt,
-    )
-    # return features
-    return cnn_Ftr, cnn_Ftt
-
 
 def main():
     options = parse_options()
@@ -264,9 +226,6 @@ def main():
 
     """train model"""
     model, tr_h, val_h = train_cnn(train_set, val_set, options)
-
-    """extract (and save) features"""
-    cnn_Ftr, cnn_Ftt = extract_features(model, options, train_set, test_set)
 
 if __name__ == "__main__":
     main()

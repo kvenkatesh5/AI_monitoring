@@ -4,8 +4,11 @@ saves/
 tmp/
 __pycache__/
 fenv/
+venv/
 .ipynb_checkpoints/
 numpy_files/
+figs/
+debug.py
 
 # Files
 .DS_Store

@@ -18,19 +18,14 @@ import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, Subset
-from torchvision import transforms, datasets
+from torch.utils.data import DataLoader, Dataset
 from torchvision.models import resnet18
-from sklearn.linear_model import LogisticRegression
-from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import roc_auc_score
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-from sklearn.ensemble import RandomForestClassifier
 from scipy.spatial.distance import cdist
-from medmnist_datasets import AbnominalCTDataset
-from utils import SupConLoss
 from networks.resnet_big import SupConResNet
+
+from medmnist_datasets import load_default_data
+from medmnist_datasets import matrixify
 
 """
 Datasets
@@ -38,24 +33,13 @@ Datasets
 Source: https://medmnist.com/
 
 Task: Distinguish axial views from sagittal/coronal views on abdominal CT scans from the Organ{A/C/S} Medical MNIST dataset. (The axial view was chosen as "OOD" since it was the most difficult for a logistic regression classifier to distinguish.)
+    "Positive Dataset": Axial CT scans
+    "OOD Dataset": Coronal/Sagittal CT scans
 
 Dataset Transforms:  ToTensor, Normalization (mu=0.5, std=0.5)
 
 Training Transforms: RandomResized Crop, Rotations (+- 10 degrees), ToTensor, Normalization (mu=0.5, std=0.5)
 """
-
-"""Matrixify fxn"""
-def matrixify(dset, label_mode="cheap-supervised"):
-    if label_mode!="cheap-supervised":
-        raise NotImplementedError("label mode not implemented: {}".format(label_mode))
-    X = np.empty((len(dset), 28*28))
-    y = np.empty((len(dset)))
-    for i in tqdm(range(len(dset))):
-        image, label = dset[i]
-        X[i,:] = image.flatten()
-        y[i] = int(label)
-    y = y.astype(np.int)
-    return X,y
 
 """Compute distances per test image against train distribution"""
 def compute_distance(feature_train, feature_test):
@@ -156,5 +140,151 @@ class EvaluateFeatureSpace(ABC):
         plt.subplots_adjust(top=0.80)
         fig.suptitle(suptitle)
 
-        plt.show()
+        # fig.savefig("figs/internal_eval2.png")
 
+"""Forward hook for ResNet"""
+cnn_layers = {}
+def get_inputs(name):
+    def hook(model, inpt, output):
+        cnn_layers[name] = inpt[0].detach()
+    return hook
+
+"""Load CNN model"""
+def load_cnn(pth):
+    print("Loading! <= {}".format(os.path.basename(pth)))
+    state = torch.load(pth)
+    hparams = state["hparams"]
+    model = resnet18(pretrained=hparams["pretrained"])
+    model.fc = torch.nn.Sequential(
+        torch.nn.Linear(in_features=512, out_features=2),
+        torch.nn.Sigmoid()
+    )
+    model.load_state_dict(state["model"])
+    h = model.fc.register_forward_hook(get_inputs('fts'))
+    model = model.to(hparams["device"]) 
+    return model
+
+"""Evaluate CNN feature space"""
+class EvaluateCNN(EvaluateFeatureSpace):
+    def get_features(self, dset):
+        self.model.eval()
+        features = []
+        ys = []
+        yhats = []
+        ldr = DataLoader(dset, batch_size=32, shuffle=False)
+        for j, (images, labels) in enumerate(tqdm(ldr)):
+            with torch.no_grad():
+                images = torch.cat([images, images, images], dim=1)
+                images = images.to(self.device)
+                targets = torch.nn.functional.one_hot(labels, num_classes=2).float()
+                targets = targets.to(self.device)
+                # Pass images through model to update cnn_layers dictionary
+                outputs = self.model(images)
+                ys.extend(targets.detach().cpu().argmax(dim=1).tolist())
+                yhats.extend(outputs[:,1].detach().squeeze().cpu().tolist())
+                # Get the (just populated!) features
+                features.append(cnn_layers['fts'].detach().cpu().numpy())
+        auroc = roc_auc_score(ys, yhats)
+        print(f"AUROC: {auroc:.4f}")
+        return np.vstack(features)
+    
+"""Evaluate CTR features"""
+class EvaluateCTR(EvaluateFeatureSpace):
+    def get_features(self, dset):
+        self.model.eval()
+        features = []
+        ldr = DataLoader(dset, batch_size=32)
+        for j, (images, labels) in enumerate(tqdm(ldr)):
+            with torch.no_grad():
+                images = torch.cat([images, images, images], dim=1)
+                images = images.to(self.device)
+                outputs = self.model.module.encoder(images)
+                norm_outputs = F.normalize(outputs)
+                features.append(norm_outputs.detach().cpu().numpy())
+        return np.vstack(features)
+    
+"""Load contrastive model"""
+def load_ctr(pth):
+    d = torch.load(pth)
+    model = SupConResNet(name=d["opt"]["model"], head=d["opt"]["projection"])
+    if torch.cuda.is_available():
+        if torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(model)
+        model = model.cuda()
+    try:
+        model.load_state_dict(d["model"])
+    except Exception:
+        raise ValueError("Incorrect model preconditions provided.")
+    return model
+
+"""Main fxn: extract each approach's features here
+since load_default_data changes ordering between calls"""
+def main():
+    # Cfg
+    with open("cfg.json", "r") as f:
+        cfg = json.load(f)
+
+    # Set GPU vis
+    use_gpus = "5,6"
+    if use_gpus != 'all':
+        os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+        os.environ['CUDA_VISIBLE_DEVICES'] = use_gpus
+    device = 'cpu'
+    ncpus = os.cpu_count()
+    dev_n = ncpus
+    if torch.cuda.is_available():
+        device = 'cuda'
+        dev_n = torch.cuda.device_count()
+    print(f"Device: {device} | # {dev_n}")
+
+    # Load data
+    # NOTE: this is not consistent between calls, so all features will be computed using this data load
+    train_set, val_set, test_set = load_default_data({
+        "data_dir": cfg["data_dir"],
+        "positive_dataset": "organamnist",
+    })
+
+    # Matrixify datasets
+    Xtr, ytr = matrixify(train_set)
+    Xvl, yvl = matrixify(val_set)
+    Xtt, ytt = matrixify(test_set)
+    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/data_splits"),
+        Xtr=Xtr, ytr=ytr,
+        Xvl=Xvl, yvl=yvl,
+        Xtt=Xtt, ytt=ytt,
+    )
+
+    # CNN
+    cnn_pth = "./saves/resnet18_lr0.01_decay0.001_bsz64_time1698682893.8338432.pt"
+    cnn_model = load_cnn(cnn_pth)
+    cnn_evl = EvaluateCNN(cnn_model, device, ytr, ytt, train_set, test_set, subsample=True)
+    # cnn_evl.eval_internal("testing")
+    cnn_Ftr = cnn_evl.original_attrs["training_features"]
+    cnn_Ftt = cnn_evl.original_attrs["testing_features"]
+    assert cnn_Ftr.shape[0] == ytr.shape[0]
+    assert cnn_Ftt.shape[0] == ytt.shape[0]
+    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/cnn_features"),
+        cnn_Ftr=cnn_Ftr,
+        cnn_Ftt=cnn_Ftt,
+        cnn_pth=cnn_pth,
+    )
+    print(f"Saved CNN features for model: {os.path.basename(cnn_pth)}")
+
+    # CTR
+    ctr_pth = "./saves/SupCon_resnet18_lr0.05_decay0.0001_bsz256_temp0.07_time1698645310.917615.pt"
+    ctr_model = load_ctr(ctr_pth)
+    ctr_evl = EvaluateCTR(ctr_model, device, ytr, ytt, train_set, test_set, subsample=True)
+    ctr_evl.eval_internal("ctr testing")
+    ctr_Ftr = ctr_evl.original_attrs["training_features"]
+    ctr_Ftt = ctr_evl.original_attrs["testing_features"]
+    assert ctr_Ftr.shape[0] == ytr.shape[0]
+    assert ctr_Ftt.shape[0] == ytt.shape[0]
+    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/ctr_features"),
+        ctr_Ftr=ctr_Ftr,
+        ctr_Ftt=ctr_Ftt,
+        model_pth=ctr_pth,
+    )
+    print(f"Saved CTR features for model: {os.path.basename(ctr_pth)}")
+
+if __name__ == "__main__":
+    main()

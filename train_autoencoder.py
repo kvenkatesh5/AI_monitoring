@@ -17,7 +17,7 @@ from torchvision import transforms
 from medmnist_datasets import AbnominalCTDataset
 from networks.conv_autoencoder import AutoEncoder
 from features import EvaluateFeatureSpace
-from features import matrixify
+from medmnist_datasets import matrixify
 from utils import save_model
 
 with open("cfg.json", "r") as f:
@@ -44,6 +44,26 @@ def train_autoencoder(tr_set, vl_set, hparams):
     # loss and optim
     loss_fxn = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=hparams["initial_lr"], weight_decay=hparams["weight_decay"])
+    # lr_scheduler
+    if hparams['scheduler_family'] == 'step':
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer=optimizer,
+            step_size=hparams['plateau_patience'],
+            gamma=hparams['drop_factor'],
+        )
+    elif hparams['scheduler_family'] == 'drop':
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizer,
+            factor=hparams['drop_factor'],
+            patience=hparams['plateau_patience'],
+            verbose=False
+        )
+    elif hparams['scheduler_family'] == "no-scheduler":
+        pass
+    else:
+        raise NotImplementedError('scheduler family not supported: {}'.format(
+            hparams["scheduler_family"]
+        ))
     # loop
     train_loss_history = []
     val_loss_history = []
@@ -93,6 +113,11 @@ def train_autoencoder(tr_set, vl_set, hparams):
         val_loss = val_loss / tot_images
         val_loss_history.append(val_loss)
         print("Epoch {} | Training Loss {:.4f} | Validation Loss {:.4f}".format(e, train_loss, val_loss))
+        # lr scheduler
+        if hparams["scheduler_family"] == "drop":
+            scheduler.step(val_loss)
+        elif hparams["scheduler_family"] != "no-scheduler":
+            scheduler.step()
         # early breaking
         if best_loss - val_loss > hparams["loss_threshold"]:
             stopping_step = 0
@@ -141,9 +166,15 @@ def parse_options():
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.05,
                         help='learning rate')
+    parser.add_argument('--scheduler_family', type=str, default="drop",
+                        choices=["drop", "step", "no-scheduler"], help='kind of lr scheduler')
+    parser.add_argument('--drop_factor', type=float, default=0.1,
+                        help='drop factor in lr scheduler')
+    parser.add_argument('--plateau_patience', type=int, default=3,
+                        help='patience in lr scheduler')
     parser.add_argument('--weight_decay', type=float, default=1e-4,
                         help='weight decay')
-    parser.add_argument('--loss-threshold', type=float, default=1e-4,
+    parser.add_argument('--loss_threshold', type=float, default=1e-4,
                         help='min change in loss to update best model')
     parser.add_argument('--break_patience', type=int, default=5,
                         help='early breaking patience')
@@ -196,6 +227,9 @@ def parse_options():
         "weight_decay": opt.weight_decay,
         "loss_threshold": opt.loss_threshold,
         "break_patience": opt.break_patience,
+        "scheduler_family": opt.scheduler_family,
+        "drop_factor": opt.drop_factor,
+        "plateau_patience": opt.plateau_patience,
         # Dataset
         "batch_size": opt.batch_size,
         "num_workers": opt.num_workers,
@@ -215,7 +249,7 @@ def extract_features(model, hparams, train_set, test_set):
     # Get features
     Ftr = evl.original_attrs["training_features"]
     Ftt = evl.original_attrs["testing_features"]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features2"),
+    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features"),
         autoencoder_Ftr=Ftr,
         autoencoder_Ftt=Ftt,
     )

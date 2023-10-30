@@ -1,16 +1,13 @@
 """OOD Detection using features, code from Ghada"""
 import argparse
 import json
-import os
+import warnings
+warnings.filterwarnings("error")
 
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import distance
 from sklearn.metrics import confusion_matrix
-from sklearn.linear_model import LogisticRegression
-
-from medmnist_datasets import load_default_data
-from medmnist_datasets import matrixify
 
 with open("cfg.json", "r") as f:
     cfg = json.load(f)
@@ -82,10 +79,10 @@ def ood_visualization(distances, mean, UCL, LCL, title, rule, ood_labels=None, m
         """Compute confusion matirx"""
         cfm = make_confusion_matrix(violations[rule], ood_labels)
         tn, fp, fn, tp = cfm.ravel()
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        acc = (tp + tn) / (tp + tn + fp + fn)
-        print(f"Accuracy: {acc} | Precision: {precision} | Recall: {recall}")
+        # precision = tp / (tp + fp)
+        # recall = tp / (tp + fn)
+        # acc = (tp + tn) / (tp + tn + fp + fn)
+        # print(f"Accuracy: {acc} | Precision: {precision} | Recall: {recall}")
 
     plt.xlim(0, len(distances) - 1)
 
@@ -94,21 +91,27 @@ def ood_visualization(distances, mean, UCL, LCL, title, rule, ood_labels=None, m
     by_label = dict(zip(labels, handles))
     plt.legend(by_label.values(), by_label.keys(), loc='upper right')
 
-    plt.savefig("figs/tmp.png")
+    # plt.savefig("figs/tmp.png")
 
 """Plot for cosine similarity"""
 def cosine_plot(tr_features, tt_features, ood_labels):
     def compute_cosine_similarity(tr_features_, tt_features_):
         centroid = np.mean(tr_features_, axis=0)
-        similarities = [1 - distance.cosine(feature, centroid) for feature in tt_features_]
+        similarities = []
+        epsilon = np.random.normal(loc=1e-6, scale=1e-3, size=centroid.shape[0])
+        for feature in tt_features_:
+            # Add a small epsilon to make sure cosine distances are not undefined
+            similarities.append(
+                # Clip the cosine distance to be in (0,1)
+                1 - np.clip(distance.cosine(feature + epsilon, centroid), a_min=0.0, a_max=1.0)
+            )
+        # similarities = [1 - distance.cosine(feature, centroid) for feature in tt_features_]
         return similarities
 
     # Cosine Similarity: Control Limits Calculation
     cosine_train_similarities = compute_cosine_similarity(tr_features, tr_features)
     cosine_mean = np.mean(cosine_train_similarities)
     cosine_std = np.std(cosine_train_similarities)
-    print(cosine_mean)
-    print(cosine_std)
     cosine_UCL = cosine_mean + 3 * cosine_std
     cosine_LCL = cosine_mean - 3 * cosine_std
 
@@ -160,10 +163,9 @@ def main():
         Ftr = F["autoencoder_Ftr"]
         Ftt = F["autoencoder_Ftt"]
     elif options["method"] == "cnn":
-        F = np.load('./numpy_files/cnn_features_updated.npz')
+        F = np.load('./numpy_files/cnn_features.npz')
         Ftr = F["cnn_Ftr"]
         Ftt = F["cnn_Ftt"]
-        print("hi")
     elif options["method"] == "ctr":
         F = np.load('./numpy_files/ctr_features.npz')
         Ftr = F["ctr_Ftr"]
