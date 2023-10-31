@@ -7,9 +7,10 @@ fenv/
 venv/
 .ipynb_checkpoints/
 numpy_files/
-figs/
+# figs/
 debug.py
 bash_scripts/
+notebooks/
 
 # Files
 .DS_Store
