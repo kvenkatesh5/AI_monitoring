@@ -3,6 +3,7 @@ import argparse
 import os
 import time
 import json
+from copy import deepcopy
 
 from tqdm import tqdm
 import numpy as np
@@ -24,53 +25,19 @@ with open("cfg.json", "r") as f:
 def parse_options():
     parser = argparse.ArgumentParser('argument for training')
 
-    parser.add_argument('--batch_size', type=int, default=256,
-                        help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=16,
-                        help='num of workers to use')
-    parser.add_argument('--max_epochs', type=int, default=1000,
-                        help='number of training epochs')
-
-    # optimization
-    parser.add_argument('--optimizer_family', type=str, default="AdamW",
-                        choices=["AdamW", "SGD"], help='kind of optimizer')
-    parser.add_argument('--scheduler_family', type=str, default="drop",
-                        choices=["drop", "step", "no-scheduler"], help='kind of lr scheduler')
+    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--max_epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=0.05,
                         help='learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-4,
-                        help='weight decay')
-    parser.add_argument('--momentum', type=float, default=0.9,
-                        help='momentum')
-    parser.add_argument('--loss_threshold', type=float, default=1e-4,
-                        help='min change in loss to update best model')
-    parser.add_argument('--drop_factor', type=float, default=0.1,
-                        help='drop factor in lr scheduler')
-    parser.add_argument('--plateau_patience', type=int, default=3,
-                        help='patience in lr scheduler')
-    parser.add_argument('--break_patience', type=int, default=5,
-                        help='early breaking patience')
-
-
-    # dataset
-    parser.add_argument('--data_dir', type=str, default='./data')
     parser.add_argument('--positive_dataset', type=str, default='organamnist',
-                        help='which dataset is positive')
-    parser.add_argument('--data_transform', type=str, default='default')
-    parser.add_argument('--shuffle', type=str, default='y', help='shuffle datasets')
-
-    # method
+                        help='which dataset is in-distribution')
     parser.add_argument('--method', type=str, default='SupCon',
                         choices=['SupCon', 'SimCLR'], help='choose method')
     parser.add_argument('--model', type=str, default='resnet18')
     parser.add_argument('--projection', type=str, default='mlp',
                         choices=['linear', 'mlp'], help='choose projection head for CLR training')
-
-    # temperature
     parser.add_argument('--temp', type=float, default=0.07,
                         help='temperature for loss function')
-
-    # other setting
     parser.add_argument('--pretrained', action='store_true',
                         help='using ImageNet-pretrained weights')
     parser.add_argument("--use-gpus", default='all', type=str, help='')
@@ -84,7 +51,7 @@ def parse_options():
         format(opt.method, opt.model, opt.learning_rate,
                opt.weight_decay, opt.batch_size, opt.temp, time.time())
 
-    opt.save_file = os.path.join(opt.model_path, opt.model_name)
+    opt.save_path = os.path.join(opt.model_path, opt.model_name)
     
     # data transform
     if opt.data_transform != "default":
@@ -110,7 +77,7 @@ def parse_options():
     options = {
         # Storage
         "data_dir": opt.data_dir,
-        "save_file": opt.save_file,
+        "save_path": opt.save_path,
         # Training
         "device": device,
         "method": opt.method,
@@ -130,10 +97,8 @@ def parse_options():
         "projection": opt.projection,
         # Dataset
         "batch_size": opt.batch_size,
-        "num_workers": opt.num_workers,
         "positive_dataset": opt.positive_dataset,
         "data_transform": opt.data_transform,
-        "shuffle": opt.shuffle == 'y',
     }
 
     return options
@@ -156,7 +121,7 @@ def set_model(opt):
     
     return model, criterion
 
-def save_model(model, optimizer, opt, epoch, save_file):
+def save_model(model, optimizer, opt, epoch, save_path):
     print('==> Saving...')
     state = {
         'opt': opt,
@@ -164,7 +129,7 @@ def save_model(model, optimizer, opt, epoch, save_file):
         'optimizer': optimizer.state_dict(),
         'epoch': epoch,
     }
-    torch.save(state, save_file)
+    torch.save(state, save_path)
     del state
 
 def train_one_epoch(tr_ldr, vl_ldr, model, criterion, optimizer, epoch, opt):
@@ -241,11 +206,11 @@ def train_contrastive(model: torch.nn.Module, criterion: torch.nn.Module, option
     ctr_train_set = AbnominalCTDataset(data_dir=options["data_dir"], label_mode="cheap-supervised",
                         positive_dataset=options["positive_dataset"],
                         tfms=TwoCropTransform(cnn_transform), split="train")
-    ctr_train_loader = DataLoader(ctr_train_set, batch_size=options["batch_size"], shuffle=options["shuffle"])
+    ctr_train_loader = DataLoader(ctr_train_set, batch_size=options["batch_size"], shuffle=True)
     ctr_val_set = AbnominalCTDataset(data_dir=options["data_dir"], label_mode="cheap-supervised",
                         positive_dataset=options["positive_dataset"],
                         tfms=TwoCropTransform(cnn_transform), split="val")
-    ctr_val_loader = DataLoader(ctr_val_set, batch_size=options["batch_size"], shuffle=options["shuffle"])
+    ctr_val_loader = DataLoader(ctr_val_set, batch_size=options["batch_size"], shuffle=True)
 
     # tracking variables
     best_val_loss = np.inf
@@ -263,33 +228,17 @@ def train_contrastive(model: torch.nn.Module, criterion: torch.nn.Module, option
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=options['initial_lr'],
-            weight_decay=options['weight_decay']
+            # weight_decay=options['weight_decay']
         )
     else:
         raise NotImplementedError('optimizer family not supported: {}'.format(
             options["optimizer_family"]
         ))
 
-    # lr_scheduler
-    if options['scheduler_family'] == 'step':
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer=optimizer,
-            step_size=options['plateau_patience'],
-            gamma=options['drop_factor'],
-        )
-    elif options['scheduler_family'] == 'drop':
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optimizer,
-            factor=options['drop_factor'],
-            patience=options['plateau_patience'],
-            verbose=False
-        )
-    elif options['scheduler_family'] == "no-scheduler":
-        pass
-    else:
-        raise NotImplementedError('scheduler family not supported: {}'.format(
-            options["scheduler_family"]
-        ))
+    # lr scheduler
+    gamma = 0.1
+    milestones = [0.5 * options["max_epochs"], 0.75 * options["max_epochs"]]
+    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
 
     # training loop
     for epoch in range(1, options["max_epochs"]+1):
@@ -300,26 +249,16 @@ def train_contrastive(model: torch.nn.Module, criterion: torch.nn.Module, option
         print('Epoch {} | Training Loss {:.4f} | Validation Loss {:.4f} | Total Time {:.2f}'.\
               format(epoch, train_loss, val_loss, time.time() - time1))
 
-        # lr scheduler
-        if options["scheduler_family"] == "drop":
-            scheduler.step(val_loss)
-        elif options["scheduler_family"] != "no-scheduler":
-            scheduler.step()
-
+        lr_scheduler.step()
         # saving best model by val loss
-        if best_val_loss - val_loss > options['loss_threshold']:
-            # update tracker
+        if val_loss < best_val_loss:
+            # update trackers
             best_val_loss = val_loss
             best_epoch = epoch
-
             # save
-            save_model(model, optimizer, options, epoch, options["save_file"])
-        
-        # early breaking
-        if epoch - best_epoch > options['break_patience']:
-            print('...Early breaking!')
-            break
-        
+            save_model(deepcopy(model), optimizer, options, epoch, options["save_path"])
+    
+    print("Model saved at: {}".format(options["save_path"]))  
     return model
 
 def main():

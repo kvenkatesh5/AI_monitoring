@@ -45,7 +45,10 @@ class AbnominalCTDataset(Dataset):
         if self.label_mode == "unsupervised":
             return image
         elif self.label_mode == "cheap-supervised":
-            dataset_label = (1 if ai==self.positive else 0)
+            if ai == self.positive:
+                dataset_label = 1
+            else:
+                dataset_label = 0
             return image, dataset_label
         else:
             return image, class_label, self.data_flags[ai] 

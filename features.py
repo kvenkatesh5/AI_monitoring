@@ -1,8 +1,7 @@
 """
-MedMNIST OOD Detection: Phase 1
-Identify out-of-modality images in a dataset of abnominal CTs (from three views: axial, saggital, coronal).
+Calculate features for each method.
 """
-
+import argparse
 import os
 import json
 import random
@@ -23,6 +22,7 @@ from torchvision.models import resnet18
 from sklearn.metrics import roc_auc_score
 from scipy.spatial.distance import cdist
 from networks.resnet_big import SupConResNet
+from networks.conv_autoencoder import AutoEncoder
 
 from medmnist_datasets import load_default_data
 from medmnist_datasets import matrixify
@@ -142,6 +142,30 @@ class EvaluateFeatureSpace(ABC):
 
         # fig.savefig("figs/internal_eval2.png")
 
+"""Load autoencoder"""
+def load_autoencoder(pth):
+    print("Loading! <= {}".format(os.path.basename(pth)))
+    state = torch.load(pth)
+    hparams = state["hparams"]
+    model = AutoEncoder(c_hid=hparams["c_hid"], latent_dim=hparams["latent_dim"])
+    model.load_state_dict(state["model"])
+    model = model.to(hparams["device"])
+    return model
+
+"""Evaluate autoencoder"""
+class EvaluateAutoEncoder(EvaluateFeatureSpace):
+    def get_features(self, dset: Dataset, return_loss=False):
+        self.model.eval()
+        features = []
+        ldr = DataLoader(dset, batch_size=32)
+        for j, (images, labels) in enumerate(tqdm(ldr)):
+            with torch.no_grad():
+                images = torch.cat([images, images, images], dim=1)
+                images = images.to(self.device)
+                fts = self.model.get_features(images).detach().cpu().numpy()
+                features.append(fts)
+        return np.vstack(features)
+
 """Forward hook for ResNet"""
 cnn_layers = {}
 def get_inputs(name):
@@ -220,6 +244,13 @@ def load_ctr(pth):
 """Main fxn: extract each approach's features here
 since load_default_data changes ordering between calls"""
 def main():
+    # Get model paths
+    parser = argparse.ArgumentParser('command-line arguments')
+    parser.add_argument('--autoencoder_path', type=str)
+    parser.add_argument('--cnn_path', type=str)
+    parser.add_argument('--ctr_path', type=str)
+    opt = parser.parse_args()
+
     # Cfg
     with open("cfg.json", "r") as f:
         cfg = json.load(f)
@@ -254,9 +285,23 @@ def main():
         Xtt=Xtt, ytt=ytt,
     )
 
+    # Autoencoder
+    autoencoder_model = load_autoencoder(opt.autoencoder_path)
+    autoencoder_evl = EvaluateAutoEncoder(autoencoder_model, device, ytr, ytt, \
+                                  train_set, test_set, subsample=True)
+    autoencoder_Ftr = autoencoder_evl.original_attrs["training_features"]
+    autoencoder_Ftt = autoencoder_evl.original_attrs["testing_features"]
+    assert autoencoder_Ftr.shape[0] == ytr.shape[0]
+    assert autoencoder_Ftt.shape[0] == ytt.shape[0]
+    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features"),
+        autoencoder_Ftr=autoencoder_Ftr,
+        autoencoder_Ftt=autoencoder_Ftt,
+        autoencoder_pth=opt.autoencoder_path,
+    )
+    print(f"Saved Autoencoder features for model: {os.path.basename(opt.autoencoder_path)}")
+
     # CNN
-    cnn_pth = "./saves/resnet18_lr0.01_decay0.001_bsz64_time1698682893.8338432.pt"
-    cnn_model = load_cnn(cnn_pth)
+    cnn_model = load_cnn(opt.cnn_path)
     cnn_evl = EvaluateCNN(cnn_model, device, ytr, ytt, train_set, test_set, subsample=True)
     # cnn_evl.eval_internal("testing")
     cnn_Ftr = cnn_evl.original_attrs["training_features"]
@@ -266,13 +311,12 @@ def main():
     np.savez(os.path.join(cfg["data_dir"], "../numpy_files/cnn_features"),
         cnn_Ftr=cnn_Ftr,
         cnn_Ftt=cnn_Ftt,
-        cnn_pth=cnn_pth,
+        cnn_pth=opt.cnn_path,
     )
-    print(f"Saved CNN features for model: {os.path.basename(cnn_pth)}")
+    print(f"Saved CNN features for model: {os.path.basename(opt.cnn_path)}")
 
     # CTR
-    ctr_pth = "./saves/SupCon_resnet18_lr0.05_decay0.0001_bsz256_temp0.07_time1698645310.917615.pt"
-    ctr_model = load_ctr(ctr_pth)
+    ctr_model = load_ctr(opt.ctr_path)
     ctr_evl = EvaluateCTR(ctr_model, device, ytr, ytt, train_set, test_set, subsample=True)
     ctr_evl.eval_internal("ctr testing")
     ctr_Ftr = ctr_evl.original_attrs["training_features"]
@@ -282,9 +326,9 @@ def main():
     np.savez(os.path.join(cfg["data_dir"], "../numpy_files/ctr_features"),
         ctr_Ftr=ctr_Ftr,
         ctr_Ftt=ctr_Ftt,
-        model_pth=ctr_pth,
+        model_pth=opt.ctr_path,
     )
-    print(f"Saved CTR features for model: {os.path.basename(ctr_pth)}")
+    print(f"Saved CTR features for model: {os.path.basename(opt.ctr_path)}")
 
 if __name__ == "__main__":
     main()
