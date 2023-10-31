@@ -271,7 +271,7 @@ def main():
     ood_statistics(Ftr_, Ftt, 1 - ytt, options["metric"], n=1000)
 
     # Plot OOD chart for one particular subset
-    random.seed(2023)
+    random.seed(2021)
     ridx, num = random.randint(a=0, b=Ftt.shape[0]-101), 100
     Ftt_ = Ftt[ridx:(ridx+num)]
     ytt_ = ytt[ridx:(ridx+num)]
