@@ -31,4 +31,4 @@ Training scripts for each feature-extraction method (convolutional autoencoder, 
 ## OOD Detection
 The extracted features are then statistically evaluated for OOD detection using the ```ood_detection.py``` script. Command-line arguments are metric (cosine or mahalonobis) and method (see above). Bootstrapped confidence intervals for accuracy, precision, and recall are printed to screen; a sample OOD detection plot (in the style of SPC charts) is saved to ```figs/```.
 ## CUSUM & Bernoulli CUSUM
-TODO
+See ```notebooks/CT_SPC_Charts.ipynb``` for CUSUM and Bernoulli CUSUM plots for a simulated scenario over 100 days.
