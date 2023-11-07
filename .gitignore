@@ -9,7 +9,7 @@ venv/
 numpy_files/
 # figs/
 debug.py
-bash_scripts/
+#bash_scripts/
 notebooks/
 
 # Files
