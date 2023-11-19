@@ -21,8 +21,6 @@ class Encoder(nn.Module):
             nn.Flatten(),
             nn.Linear(2 * 16 * c_hid, latent_dim),
         )
-        
-        pass
     def forward(self, x):
         return self.network(x)
     
