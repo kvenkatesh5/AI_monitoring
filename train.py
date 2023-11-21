@@ -12,35 +12,13 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-import torchvision
 from torchvision import transforms
 
-from medmnist_datasets import AbnominalCTDataset
-from networks.models import Model
-from networks.models import load_model
-from utils import save_model
+from datasets import load_data
+from feature_methods import load_model
 
 with open("cfg.json", "r") as f:
     cfg = json.load(f)
-
-"""load custom dataset"""
-def load_dataset(name: str, positive: str, tfm: transforms):
-    if name != "MedMNIST-AbnominalCT":
-        raise NotImplementedError(f"requested dataset not implemented: {name}")
-    
-    train_set = AbnominalCTDataset(data_dir=cfg["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=positive, tfms=tfm,
-                        split="train")
-
-    val_set = AbnominalCTDataset(data_dir=cfg["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=positive, tfms=tfm,
-                        split="val")
-    
-    test_set = AbnominalCTDataset(data_dir=cfg["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=positive, tfms=tfm,
-                        split="test")
-    
-    return train_set, val_set, test_set
 
 def parse_options():
     parser = argparse.ArgumentParser('command-line arguments for model training')
@@ -48,15 +26,21 @@ def parse_options():
     # general arguments
     parser.add_argument("--use-gpus", default='all', type=str, help='gpu device numbers')
 
-    # model arguments
-    parser.add_argument('--model', type=str, \
+    # method arguments
+    parser.add_argument('--method', type=str, \
                         choices=["conv-autoencoder", "supervised-cnn", "supervised-ctr"])
     parser.add_argument('--c_hid', type=int, default=16, help='number of hidden channels')
     parser.add_argument('--latent_dim', type=int, default=100, help='number of latent dims')
-    parser.add_argument('--pretrained', type=bool, default=False, help='pretrained weights (for CNN-based methods)')
+    parser.add_argument('--pretrained', type=bool, default=False, help='pretrained weights (for supervised CNN)')
+    parser.add_argument('--base_model', type=str,\
+                        choices=["resnet18"], help="base CNN architecture (for CNN-based methods)")
+    parser.add_argument('--projection', type=str, default='mlp',
+                        choices=['linear', 'mlp'], help='projection head for CLR')
+    parser.add_argument('--temp', type=float, default=0.07, help="temperature for CLR loss fxn")
+
 
     # data arguments
-    parser.add_argument('--dataset', choices=["MedMNIST-AbnominalCT"])
+    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"])
     parser.add_argument('--dataset_transforms', type=str, default='default')
     parser.add_argument('--positive_dataset', type=str, default='organamnist',
                             help='which dataset is in-distribution')
@@ -94,15 +78,19 @@ def parse_options():
     # storage files
     opt.model_path = './saves'
     opt.model_name = '{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
-        format(opt.model, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
+        format(opt.method, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")
 
     # make options dictionary
     options = {
-        "model": opt.model,
+        "data_dir": cfg["data_dir"],
+        "method": opt.method,
         "c_hid": opt.c_hid,
         "latent_dim": opt.latent_dim,
         "pretrained": opt.pretrained,
+        "base_model": opt.base_model,
+        "projection": opt.projection,
+        "temp": opt.temp,
         "dataset": opt.dataset,
         "dataset_transforms": dataset_transforms,
         "positive_dataset": opt.positive_dataset,
@@ -118,11 +106,7 @@ def parse_options():
 def main():
     options = parse_options()
 
-    train_set, val_set, test_set = load_dataset(
-        name=options["dataset"],
-        positive=options["positive_dataset"],
-        tfm=options["dataset_transforms"]
-    )
+    train_set, val_set, test_set = load_data(options)
 
     train_loader = DataLoader(train_set, batch_size=options["batch_size"], shuffle=True)
     val_loader = DataLoader(val_set, batch_size=options["batch_size"], shuffle=True)
@@ -131,7 +115,7 @@ def main():
     feature_model.train_model(train_loader, val_loader)
 
     # done
-    print(f'Model is saved at: {options["save_path"]}')
+    print(f'==> Model is saved at: {options["save_path"]} !')
 
 if __name__ == "__main__":
     main()
