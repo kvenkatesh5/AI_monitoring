@@ -10,7 +10,7 @@ CUSUM_detector
 # USAGE:
 # from SPC_Charts import CUSUM_detector
 # INITIALIZE:
-# detector = CUSUMChangeDetector(pre_change_days, total_days, ref_val, control_limit, delta)
+# detector = CUSUM_detector.CUSUMChangeDetector(pre_change_days, total_days, ref_val, control_limit, delta)
 
 # Call the changeDetection method to compute CUSUM and detect the changepoint 
 # detector.changeDetection(CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th))
@@ -41,63 +41,63 @@ class CUSUMChangeDetector:
         self.delta                  = delta
         #self.CUSUM_data_average_day = CUSUM_data_average_day        
 
-   def plotCUSUM(self, signal, S_hi, S_lo):
-       """
-       Plot the cumulative sum of positive and negative changes
-       Parameters:
-       - signal : is this the cumulative sum of changes in mean?
-       - S_hi   : CUSUM of positive changes
-       - S_lo   : CUSUM of negative changes
-       """
-       fig, ax = plt.subplots(figsize=(15, 6))
+    def plotCUSUM(self, signal, S_hi, S_lo):
+        """
+        Plot the cumulative sum of positive and negative changes
+        Parameters:
+        - signal : is this the cumulative sum of changes in mean?
+        - S_hi   : CUSUM of positive changes
+        - S_lo   : CUSUM of negative changes
+        """
+        fig, ax = plt.subplots(figsize=(15, 6))
 
-       ax.plot(S_hi, label='High Side CUSUM', color='blue')
-       ax.plot(S_lo, label='Low Side CUSUM', color='green')
-       ax.axhline(y=h, color='black', linestyle='--', linewidth=2, label='Threshold (+h)')
-       ax.axhline(y=-h, color='black', linestyle='--', linewidth=2, label='Threshold (-h)')
-       ax.scatter(signal, [S_hi[i] for i in signal], color='grey', zorder=5, label='Detected Shift')
-       ax.scatter(signal, [S_lo[i] for i in signal], color='grey', zorder=5)
+        ax.plot(S_hi, label='High Side CUSUM', color='blue')
+        ax.plot(S_lo, label='Low Side CUSUM', color='green')
+        ax.axhline(y=h, color='black', linestyle='--', linewidth=2, label='Threshold (+h)')
+        ax.axhline(y=-h, color='black', linestyle='--', linewidth=2, label='Threshold (-h)')
+        ax.scatter(signal, [S_hi[i] for i in signal], color='grey', zorder=5, label='Detected Shift')
+        ax.scatter(signal, [S_lo[i] for i in signal], color='grey', zorder=5)
 
-       # Indicate the first shift point
-       ax.axvline(x=20, color='purple', linestyle='--', label='First Shift')  # Purple line for shift start
-       # Indicate the second shift point
-       ax.axvline(x=60, color='purple', linestyle='--', label='Second Shift')  # Purple line for shift start
+        # Indicate the first shift point
+        ax.axvline(x=20, color='purple', linestyle='--', label='First Shift')  # Purple line for shift start
+        # Indicate the second shift point
+        ax.axvline(x=60, color='purple', linestyle='--', label='Second Shift')  # Purple line for shift start
 
-       #ax.set_title(f'Processing for k = {k}')
-       ax.set_facecolor('white')  # White background
+        #ax.set_title(f'Processing for k = {k}')
+        ax.set_facecolor('white')  # White background
 
-       ax.set_xlabel('Time (day)')
-       ax.set_ylabel('CUSUM Value')
-       ax.legend()
-       ax.grid(True, color='lightgrey')  # Black grid lines
-       plt.show()
+        ax.set_xlabel('Time (day)')
+        ax.set_ylabel('CUSUM Value')
+        ax.legend()
+        ax.grid(True, color='lightgrey')  # Black grid lines
+        plt.show()
 
-   def computeCUSUM(self, x, mu0, k, h):
-       """
-       Computes the cumulative sum of positive changes, negative changes and the cumulative sum of observations 
-       Parameters:
-       - x   : daily observations or data stream to monitor the changes 
-       - mu0 : mean of the in-control observations
-       - k   : reference value (shift in the observations to be detected in mutiples of in-control standard deviation)
-       - h   : control limit
-       """
-       S_hi  = [0]
-       S_lo  = [0]
-       cusum = [0]
-       for i in range(len(x)):
-           S_hi.append(max(0, S_hi[i] + (x[i] - mu0 - k)))
-           S_lo.append(min(0, S_lo[i] + (x[i] - mu0 + k)))
-           cusum.append(cusum[i] + x[i] - mu)
+    def computeCUSUM(self, x, mu0, k, h):
+        """
+        Computes the cumulative sum of positive changes, negative changes and the cumulative sum of observations 
+        Parameters:
+        - x   : daily observations or data stream to monitor the changes 
+        - mu0 : mean of the in-control observations
+        - k   : reference value (shift in the observations to be detected in mutiples of in-control standard deviation)
+        - h   : control limit
+        """
+        S_hi  = [0]
+        S_lo  = [0]
+        cusum = [0]
+        for i in range(len(x)):
+            S_hi.append(max(0, S_hi[i] + (x[i] - mu0 - k)))
+            S_lo.append(min(0, S_lo[i] + (x[i] - mu0 + k)))
+            cusum.append(cusum[i] + x[i] - mu)
 
-       S_hi = np.array(S_hi[1:])
-       S_lo = np.array(S_lo[1:])
-       cusum = np.array(cusum)
+        S_hi = np.array(S_hi[1:])
+        S_lo = np.array(S_lo[1:])
+        cusum = np.array(cusum)
 
-       signal_hi = np.where(S_hi > h)[0]
-       signal_lo = np.where(S_lo < -h)[0]
-       signal = np.unique(np.concatenate((signal_hi, signal_lo)))
+        signal_hi = np.where(S_hi > h)[0]
+        signal_lo = np.where(S_lo < -h)[0]
+        signal = np.unique(np.concatenate((signal_hi, signal_lo)))
 
-    return signal, S_hi, S_lo
+        return signal, S_hi, S_lo
 
 
     def changeDetection(self, CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th):  #k_th = ref_val
@@ -115,9 +115,9 @@ class CUSUMChangeDetector:
         out_control_data = CUSUM_data_average_day[pre_change_days:total_days]
 
         # Compute the mean and standard deviation for in-control and out-of-control periods
-        mu_in  = np.mean(in_control_sp)
-        mu_out = np.mean(out_control_sp)
-        in_std = np.std(in_control_sp)
+        mu_in  = np.mean(in_control_data)
+        mu_out = np.mean(out_control_data)
+        in_std = np.std(in_control_data)
 
         k = (k_th * in_std)/2       #k=(delta*sigma)/2  This is the ref. val
         h = control_limit * in_std  # threshold
