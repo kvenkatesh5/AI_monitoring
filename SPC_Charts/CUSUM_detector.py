@@ -16,7 +16,7 @@ CUSUM_detector
 # detector.changeDetection(CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th))
 
 # Call the plot_ method to compute CUSUM and detect the changepoint 
-# detector.plotCUSUM(signal, S_hi, S_lo)
+# detector.plotCUSUM(signal, S_hi, S_lo, h)
 
 import numpy as np
 import matplotlib.pyplot as plt
