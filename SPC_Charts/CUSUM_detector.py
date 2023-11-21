@@ -20,6 +20,7 @@ CUSUM_detector
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 class CUSUMChangeDetector:
     def __init__(self, pre_change_days, total_days, ref_val, control_limit, delta):
@@ -41,7 +42,7 @@ class CUSUMChangeDetector:
         self.delta                  = delta
         #self.CUSUM_data_average_day = CUSUM_data_average_day        
 
-    def plotCUSUM(self, signal, S_hi, S_lo):
+    def plotCUSUM(self, signal, S_hi, S_lo, h):
         """
         Plot the cumulative sum of positive and negative changes
         Parameters:
@@ -70,6 +71,7 @@ class CUSUMChangeDetector:
         ax.set_ylabel('CUSUM Value')
         ax.legend()
         ax.grid(True, color='lightgrey')  # Black grid lines
+        plt.savefig("CUSUM.png") 
         plt.show()
 
     def computeCUSUM(self, x, mu0, k, h):
@@ -87,7 +89,7 @@ class CUSUMChangeDetector:
         for i in range(len(x)):
             S_hi.append(max(0, S_hi[i] + (x[i] - mu0 - k)))
             S_lo.append(min(0, S_lo[i] + (x[i] - mu0 + k)))
-            cusum.append(cusum[i] + x[i] - mu)
+            cusum.append(cusum[i] + x[i] - mu0)
 
         S_hi = np.array(S_hi[1:])
         S_lo = np.array(S_lo[1:])
@@ -110,6 +112,8 @@ class CUSUMChangeDetector:
         control_limit          : Upper or Lower control limit (detection threshold)
         k_th                   : reference value (shift in the observations to be detected in mutiples of in-control standard deviation)
         """
+    
+        
         # Split your data into in-control and out-of-control periods
         in_control_data  = CUSUM_data_average_day[:pre_change_days]
         out_control_data = CUSUM_data_average_day[pre_change_days:total_days]
@@ -129,11 +133,11 @@ class CUSUMChangeDetector:
         DetectionDelays = []
 
         # Call the CUSUM function
-        signal, S_hi, S_lo = computeCUSUM(CUSUM_data_average_day, mu_in, k, h)
+        signal, S_hi, S_lo = self.computeCUSUM(CUSUM_data_average_day, mu_in, k, h)
 
         # Plot the CUSUM positive and negative changes
         # CAll plot function here
-        plotCUSUM(signal, S_hi, S_lo)
+        self.plotCUSUM(signal, S_hi, S_lo, h)
         
         # Initialize summary_metrics list here
         summary_metrics = []
@@ -146,7 +150,7 @@ class CUSUMChangeDetector:
         # Calculate True Positives and Detection Delay
         for i in range(pre_change_days, total_days):  # Start from the actual shift point
             if S_hi[i] > h or S_lo[i] < -h:
-                detection_delay = i - shift_point
+                detection_delay = i - pre_change_days
                 AvgDD.append(detection_delay)
                 break  # Break after the first detection
         # Now calculate the average detection delay
