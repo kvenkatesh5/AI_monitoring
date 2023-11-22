@@ -2,6 +2,11 @@
 ## Overview
 Task: develop image features that enable in-modality OOD detection, specifically on the task of sifting out axial CTs from a dataset that also includes sagittal and coronal views.
 Data: MedicalMNISTv2, Organ{A/C/S}MNIST
+
+Try it out:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kvenkatesh5/AI_monitoring/blob/reproducibility_bjn/statistical_process_control_medimaging.ipynb)
+
 ## Folder structure
 Construct folder structure as follows.
 ```
