@@ -25,6 +25,7 @@ def parse_options():
 
     # general arguments
     parser.add_argument("--use-gpus", default='all', type=str, help='gpu device numbers')
+    parser.add_argument('--model_path', type=str, default='saves')
 
     # method arguments
     parser.add_argument('--method', type=str, \
@@ -76,9 +77,12 @@ def parse_options():
         raise NotImplementedError(f"requested transform is not implemented: {opt.dataset_transforms}")
 
     # storage files
-    opt.model_path = './saves'
     if not os.path.exists(opt.model_path):
         os.mkdir(opt.model_path)
+
+    if not os.path.exists(cfg['data_dir']):
+        os.mkdir(opt.data_dir)
+
     opt.model_name = '{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
         format(opt.method, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")

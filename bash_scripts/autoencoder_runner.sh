@@ -7,4 +7,4 @@ python3 train.py \
     --max_epochs 100 \
     --c_hid 16 \
     --latent_dim 100 \
-    --use-gpus "2,3"
+     #--use-gpus "2,3"

@@ -9,4 +9,4 @@ python3  train.py \
     --base_model "resnet18" \
     --projection "mlp" \
     --temp 0.07 \
-    --use-gpus "6,7"
+     #--use-gpus "6,7"

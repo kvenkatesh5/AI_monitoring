@@ -8,4 +8,4 @@ python3  train.py \
     --positive_dataset "organamnist" \
     --pretrained "n" \
     --base_model "resnet18" \
-    --use-gpus "0,1"
+     #--use-gpus "0,1"
