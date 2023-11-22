@@ -261,7 +261,7 @@ def main():
         cfg = json.load(f)
 
     # Set GPU vis
-    use_gpus = "5,6"
+    use_gpus = 'all' #"5,6"
     if use_gpus != 'all':
         os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
         os.environ['CUDA_VISIBLE_DEVICES'] = use_gpus
