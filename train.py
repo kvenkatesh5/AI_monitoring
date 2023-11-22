@@ -34,7 +34,7 @@ def parse_options():
     parser.add_argument('--latent_dim', type=int, default=100, help='number of latent dims')
     parser.add_argument('--pretrained', type=bool, default=False, help='pretrained weights (for supervised CNN)')
     parser.add_argument('--base_model', type=str,\
-                        choices=["resnet18"], help="base CNN architecture (for CNN-based methods)")
+                        choices=["resnet18"], default = "resnet18", help="base CNN architecture (for CNN-based methods)")
     parser.add_argument('--projection', type=str, default='mlp',
                         choices=['linear', 'mlp'], help='projection head for CLR')
     parser.add_argument('--temp', type=float, default=0.07, help="temperature for CLR loss fxn")

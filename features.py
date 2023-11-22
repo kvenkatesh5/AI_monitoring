@@ -144,12 +144,13 @@ class EvaluateFeatureSpace(ABC):
 
 """Load autoencoder"""
 def load_autoencoder(pth):
-    print("Loading! <= {}".format(os.path.basename(pth)))
+    print("Loading! <= {}".format(pth))
     state = torch.load(pth)
-    hparams = state["hparams"]
-    model = AutoEncoder(c_hid=hparams["c_hid"], latent_dim=hparams["latent_dim"])
-    model.load_state_dict(state["model"])
-    model = model.to(hparams["device"])
+    hparams = state['options'] if torch.__version__ > '2.0' else state["hparams"]
+    model = ConvAutoEncoder(hparams)
+    model.load_state(pth)
+    device = state['device'] if torch.__version__ > '2.0' else hparams["device"]
+    model = model.model.to(device)
     return model
 
 """Evaluate autoencoder"""
@@ -175,9 +176,9 @@ def get_inputs(name):
 
 """Load CNN model"""
 def load_cnn(pth):
-    print("Loading! <= {}".format(os.path.basename(pth)))
+    print("Loading! <= {}".format(pth))
     state = torch.load(pth)
-    hparams = state["hparams"]
+    hparams = state['options'] if torch.__version__ > '2.0' else state["hparams"]
     model = resnet18(pretrained=hparams["pretrained"])
     model.fc = torch.nn.Sequential(
         torch.nn.Linear(in_features=512, out_features=2),
@@ -185,7 +186,8 @@ def load_cnn(pth):
     )
     model.load_state_dict(state["model"])
     h = model.fc.register_forward_hook(get_inputs('fts'))
-    model = model.to(hparams["device"]) 
+    device = state['device'] if torch.__version__ > '2.0' else hparams["device"]
+    model = model.to(device)
     return model
 
 """Evaluate CNN feature space"""
@@ -222,21 +224,24 @@ class EvaluateCTR(EvaluateFeatureSpace):
             with torch.no_grad():
                 images = torch.cat([images, images, images], dim=1)
                 images = images.to(self.device)
-                outputs = self.model.module.encoder(images)
+                outputs = self.model.modules.encoder(images) if torch.__version__ > '2.0' else self.model.module.encoder(images)
                 norm_outputs = F.normalize(outputs)
                 features.append(norm_outputs.detach().cpu().numpy())
         return np.vstack(features)
     
 """Load contrastive model"""
 def load_ctr(pth):
-    d = torch.load(pth)
-    model = SupConResNet(name=d["opt"]["model"], head=d["opt"]["projection"])
+    print("Loading! <= {}".format(pth))
+    state = torch.load(pth)
+    hparams = state['options'] if torch.__version__ > '2.0' else state["hparams"]
+
+    model = SupConResNet(name=hparams['base_model'], head=hparams["projection"])
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(model)
         model = model.cuda()
     try:
-        model.load_state_dict(d["model"])
+        model.load_state_dict(state["model"])
     except Exception:
         raise ValueError("Incorrect model preconditions provided.")
     return model
@@ -331,7 +336,6 @@ def main():
         ctr_Ftt=ctr_Ftt,
         model_pth=opt.ctr_path,
     )
-    print(f"Saved CTR features for model: {os.path.basename(opt.ctr_path)}")
 
 if __name__ == "__main__":
     main()
