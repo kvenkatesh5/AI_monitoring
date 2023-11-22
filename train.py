@@ -81,7 +81,7 @@ def parse_options():
         os.mkdir(opt.model_path)
 
     if not os.path.exists(cfg['data_dir']):
-        os.mkdir(opt.data_dir)
+        os.mkdir(cfg['data_dir'])
 
     opt.model_name = '{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
         format(opt.method, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
