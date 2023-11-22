@@ -21,8 +21,8 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.models import resnet18
 from sklearn.metrics import roc_auc_score
 from scipy.spatial.distance import cdist
-from networks.resnet_big import SupConResNet
-from networks.conv_autoencoder import AutoEncoder
+from feature_methods.resnet_big import SupConResNet
+from feature_methods.conv_autoencoder import ConvAutoEncoder
 
 from medmnist_datasets import load_default_data
 from medmnist_datasets import matrixify
@@ -275,11 +275,14 @@ def main():
         "positive_dataset": "organamnist",
     })
 
+    if not os.path.exists(os.path.join(cfg["data_dir"], "numpy_files")):
+        os.mkdir(os.path.join(cfg["data_dir"], "numpy_files"))
+
     # Matrixify datasets
     Xtr, ytr = matrixify(train_set)
     Xvl, yvl = matrixify(val_set)
     Xtt, ytt = matrixify(test_set)
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/data_splits"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/data_splits"),
         Xtr=Xtr, ytr=ytr,
         Xvl=Xvl, yvl=yvl,
         Xtt=Xtt, ytt=ytt,
@@ -293,7 +296,7 @@ def main():
     autoencoder_Ftt = autoencoder_evl.original_attrs["testing_features"]
     assert autoencoder_Ftr.shape[0] == ytr.shape[0]
     assert autoencoder_Ftt.shape[0] == ytt.shape[0]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/autoencoder_features"),
         autoencoder_Ftr=autoencoder_Ftr,
         autoencoder_Ftt=autoencoder_Ftt,
         autoencoder_pth=opt.autoencoder_path,
@@ -308,7 +311,7 @@ def main():
     cnn_Ftt = cnn_evl.original_attrs["testing_features"]
     assert cnn_Ftr.shape[0] == ytr.shape[0]
     assert cnn_Ftt.shape[0] == ytt.shape[0]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/cnn_features"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/cnn_features"),
         cnn_Ftr=cnn_Ftr,
         cnn_Ftt=cnn_Ftt,
         cnn_pth=opt.cnn_path,
@@ -323,7 +326,7 @@ def main():
     ctr_Ftt = ctr_evl.original_attrs["testing_features"]
     assert ctr_Ftr.shape[0] == ytr.shape[0]
     assert ctr_Ftt.shape[0] == ytt.shape[0]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/ctr_features"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/ctr_features"),
         ctr_Ftr=ctr_Ftr,
         ctr_Ftt=ctr_Ftt,
         model_pth=opt.ctr_path,

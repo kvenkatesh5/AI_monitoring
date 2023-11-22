@@ -5,6 +5,7 @@ tmp/
 __pycache__/
 fenv/
 venv/
+.venv/
 .ipynb_checkpoints/
 numpy_files/
 # figs/

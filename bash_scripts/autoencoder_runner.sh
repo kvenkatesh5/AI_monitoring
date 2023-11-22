@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 /home/kesavan.venkatesh/ai_monitoring/train.py \
+python3 train.py \
     --dataset "MedMNIST-AbdominalCT" \
     --method "conv-autoencoder" \
     --learning_rate 0.001 \

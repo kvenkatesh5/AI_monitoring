@@ -77,6 +77,8 @@ def parse_options():
 
     # storage files
     opt.model_path = './saves'
+    if not os.path.exists(opt.model_path):
+        os.mkdir(opt.model_path)
     opt.model_name = '{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
         format(opt.method, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")
