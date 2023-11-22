@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 /home/kesavan.venkatesh/ai_monitoring/train.py \
+python3  train.py \
     --dataset "MedMNIST-AbdominalCT" \
     --method "supervised-cnn" \
     --learning_rate 0.001 \
@@ -8,4 +8,4 @@ python3 /home/kesavan.venkatesh/ai_monitoring/train.py \
     --positive_dataset "organamnist" \
     --pretrained "n" \
     --base_model "resnet18" \
-    --use-gpus "0,1"
+     #--use-gpus "0,1"

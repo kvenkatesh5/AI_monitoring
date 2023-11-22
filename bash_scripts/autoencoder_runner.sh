@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 /home/kesavan.venkatesh/ai_monitoring/train.py \
+python3 train.py \
     --dataset "MedMNIST-AbdominalCT" \
     --method "conv-autoencoder" \
     --learning_rate 0.001 \
@@ -7,4 +7,4 @@ python3 /home/kesavan.venkatesh/ai_monitoring/train.py \
     --max_epochs 100 \
     --c_hid 16 \
     --latent_dim 100 \
-    --use-gpus "2,3"
+     #--use-gpus "2,3"

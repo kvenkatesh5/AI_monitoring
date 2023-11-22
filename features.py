@@ -21,8 +21,8 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.models import resnet18
 from sklearn.metrics import roc_auc_score
 from scipy.spatial.distance import cdist
-from networks.resnet_big import SupConResNet
-from networks.conv_autoencoder import AutoEncoder
+from feature_methods.resnet_big import SupConResNet
+from feature_methods.conv_autoencoder import ConvAutoEncoder
 
 from medmnist_datasets import load_default_data
 from medmnist_datasets import matrixify
@@ -144,12 +144,13 @@ class EvaluateFeatureSpace(ABC):
 
 """Load autoencoder"""
 def load_autoencoder(pth):
-    print("Loading! <= {}".format(os.path.basename(pth)))
+    print("Loading! <= {}".format(pth))
     state = torch.load(pth)
-    hparams = state["hparams"]
-    model = AutoEncoder(c_hid=hparams["c_hid"], latent_dim=hparams["latent_dim"])
-    model.load_state_dict(state["model"])
-    model = model.to(hparams["device"])
+    hparams = state['options'] if torch.__version__ > '2.0' else state["hparams"]
+    model = ConvAutoEncoder(hparams)
+    model.load_state(pth)
+    device = state['device'] if torch.__version__ > '2.0' else hparams["device"]
+    model = model.model.to(device)
     return model
 
 """Evaluate autoencoder"""
@@ -175,9 +176,9 @@ def get_inputs(name):
 
 """Load CNN model"""
 def load_cnn(pth):
-    print("Loading! <= {}".format(os.path.basename(pth)))
+    print("Loading! <= {}".format(pth))
     state = torch.load(pth)
-    hparams = state["hparams"]
+    hparams = state['options'] if torch.__version__ > '2.0' else state["hparams"]
     model = resnet18(pretrained=hparams["pretrained"])
     model.fc = torch.nn.Sequential(
         torch.nn.Linear(in_features=512, out_features=2),
@@ -185,7 +186,8 @@ def load_cnn(pth):
     )
     model.load_state_dict(state["model"])
     h = model.fc.register_forward_hook(get_inputs('fts'))
-    model = model.to(hparams["device"]) 
+    device = state['device'] if torch.__version__ > '2.0' else hparams["device"]
+    model = model.to(device)
     return model
 
 """Evaluate CNN feature space"""
@@ -222,21 +224,24 @@ class EvaluateCTR(EvaluateFeatureSpace):
             with torch.no_grad():
                 images = torch.cat([images, images, images], dim=1)
                 images = images.to(self.device)
-                outputs = self.model.module.encoder(images)
+                outputs = self.model.modules.encoder(images) if torch.__version__ > '2.0' else self.model.module.encoder(images)
                 norm_outputs = F.normalize(outputs)
                 features.append(norm_outputs.detach().cpu().numpy())
         return np.vstack(features)
     
 """Load contrastive model"""
 def load_ctr(pth):
-    d = torch.load(pth)
-    model = SupConResNet(name=d["opt"]["model"], head=d["opt"]["projection"])
+    print("Loading! <= {}".format(pth))
+    state = torch.load(pth)
+    hparams = state['options'] if torch.__version__ > '2.0' else state["hparams"]
+
+    model = SupConResNet(name=hparams['base_model'], head=hparams["projection"])
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(model)
         model = model.cuda()
     try:
-        model.load_state_dict(d["model"])
+        model.load_state_dict(state["model"])
     except Exception:
         raise ValueError("Incorrect model preconditions provided.")
     return model
@@ -256,7 +261,7 @@ def main():
         cfg = json.load(f)
 
     # Set GPU vis
-    use_gpus = "5,6"
+    use_gpus = 'all' #"5,6"
     if use_gpus != 'all':
         os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
         os.environ['CUDA_VISIBLE_DEVICES'] = use_gpus
@@ -275,11 +280,14 @@ def main():
         "positive_dataset": "organamnist",
     })
 
+    if not os.path.exists(os.path.join(cfg["data_dir"], "numpy_files")):
+        os.mkdir(os.path.join(cfg["data_dir"], "numpy_files"))
+
     # Matrixify datasets
     Xtr, ytr = matrixify(train_set)
     Xvl, yvl = matrixify(val_set)
     Xtt, ytt = matrixify(test_set)
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/data_splits"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/data_splits"),
         Xtr=Xtr, ytr=ytr,
         Xvl=Xvl, yvl=yvl,
         Xtt=Xtt, ytt=ytt,
@@ -293,7 +301,7 @@ def main():
     autoencoder_Ftt = autoencoder_evl.original_attrs["testing_features"]
     assert autoencoder_Ftr.shape[0] == ytr.shape[0]
     assert autoencoder_Ftt.shape[0] == ytt.shape[0]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/autoencoder_features"),
         autoencoder_Ftr=autoencoder_Ftr,
         autoencoder_Ftt=autoencoder_Ftt,
         autoencoder_pth=opt.autoencoder_path,
@@ -308,7 +316,7 @@ def main():
     cnn_Ftt = cnn_evl.original_attrs["testing_features"]
     assert cnn_Ftr.shape[0] == ytr.shape[0]
     assert cnn_Ftt.shape[0] == ytt.shape[0]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/cnn_features"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/cnn_features"),
         cnn_Ftr=cnn_Ftr,
         cnn_Ftt=cnn_Ftt,
         cnn_pth=opt.cnn_path,
@@ -323,12 +331,11 @@ def main():
     ctr_Ftt = ctr_evl.original_attrs["testing_features"]
     assert ctr_Ftr.shape[0] == ytr.shape[0]
     assert ctr_Ftt.shape[0] == ytt.shape[0]
-    np.savez(os.path.join(cfg["data_dir"], "../numpy_files/ctr_features"),
+    np.savez(os.path.join(cfg["data_dir"], "numpy_files/ctr_features"),
         ctr_Ftr=ctr_Ftr,
         ctr_Ftt=ctr_Ftt,
         model_pth=opt.ctr_path,
     )
-    print(f"Saved CTR features for model: {os.path.basename(opt.ctr_path)}")
 
 if __name__ == "__main__":
     main()
