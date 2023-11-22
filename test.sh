@@ -1,21 +1,21 @@
 #!/bin/bash
 MAX_EPOCHS=10
 
-# echo 'Model training [1/3] Now running: bash_scripts/autoencoder_runner.sh...'
-# python3 train.py \
-#     --method "conv-autoencoder" \
-#     --max_epochs $MAX_EPOCHS \
+echo 'Model training [1/3] Now running: bash_scripts/autoencoder_runner.sh...'
+python3 train.py \
+    --method "conv-autoencoder" \
+    --max_epochs $MAX_EPOCHS \
 
-# echo 'Model training [2/3] Now running: bash_scripts/cnn.sh...'
-# python3  train.py \
-#     --method "supervised-cnn" \
-#     --max_epochs $MAX_EPOCHS \
+echo 'Model training [2/3] Now running: bash_scripts/cnn.sh...'
+python3  train.py \
+    --method "supervised-cnn" \
+    --max_epochs $MAX_EPOCHS \
 
-# echo 'Model training [3/3] Now running: bash bash_scripts/ctr.sh...'
-# python3  train.py \
-#     --method "supervised-ctr" \
-#     --max_epochs $MAX_EPOCHS \
-#     --positive_dataset "organamnist" \
+echo 'Model training [3/3] Now running: bash bash_scripts/ctr.sh...'
+python3  train.py \
+    --method "supervised-ctr" \
+    --max_epochs $MAX_EPOCHS \
+    --positive_dataset "organamnist" \
 
 echo 'Generating features'
 python3 features.py \
