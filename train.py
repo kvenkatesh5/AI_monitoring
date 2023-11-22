@@ -41,7 +41,7 @@ def parse_options():
 
 
     # data arguments
-    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"])
+    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"], default="MedMNIST-AbdominalCT")
     parser.add_argument('--dataset_transforms', type=str, default='default')
     parser.add_argument('--positive_dataset', type=str, default='organamnist',
                             help='which dataset is in-distribution')
