@@ -1,5 +1,5 @@
 #!/bin/bash
-MAX_EPOCHS=10
+MAX_EPOCHS=2
 
 echo 'Model training [1/3] Now running: bash_scripts/autoencoder_runner.sh...'
 python3 train.py \
