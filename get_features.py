@@ -73,42 +73,36 @@ def main():
 
     # Autoencoder
     autoencoder_load = torch.load(opt.autoencoder_path)
-    autoencoder_model = load_model(autoencoder_load["options"])
+    autoencoder_model = load_model(autoencoder_load["options"], mode="testing")
     autoencoder_eval = load_eval(autoencoder_model, train_set, val_set, test_set)
-    autoencoder_train_fts = autoencoder_eval.get_features(train_set)
-    autoencoder_test_fts = autoencoder_eval.get_features(test_set)
     autoencoder_fts_path = os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features")
     np.savez(autoencoder_fts_path,
-        autoencoder_Ftr=autoencoder_train_fts,
-        autoencoder_Ftt=autoencoder_test_fts,
+        autoencoder_Ftr=autoencoder_eval.train_features,
+        autoencoder_Ftt=autoencoder_eval.test_features,
         autoencoder_pth=opt.autoencoder_path,
     )
     print(f"Saved autoencoder features at: {autoencoder_fts_path} !")
 
     # Supervised CNN
     cnn_load = torch.load(opt.cnn_path)
-    cnn_model = load_model(cnn_load["options"])
+    cnn_model = load_model(cnn_load["options"], mode="testing")
     cnn_eval = load_eval(cnn_model, train_set, val_set, test_set)
-    cnn_train_fts = cnn_eval.get_features(train_set)
-    cnn_test_fts = cnn_eval.get_features(test_set)
     cnn_fts_path = os.path.join(cfg["data_dir"], "../numpy_files/cnn_features")
     np.savez(cnn_fts_path,
-        cnn_Ftr=cnn_train_fts,
-        cnn_Ftt=cnn_test_fts,
+        cnn_Ftr=cnn_eval.train_features,
+        cnn_Ftt=cnn_eval.test_features,
         cnn_pth=opt.cnn_path,
     )
     print(f"Saved ood-supervised CNN features at: {cnn_fts_path} !")
 
     # Supervised Contrastive CNN
     ctr_load = torch.load(opt.ctr_path)
-    ctr_model = load_model(ctr_load["options"])
+    ctr_model = load_model(ctr_load["options"], mode="testing")
     ctr_eval = load_eval(ctr_model, train_set, val_set, test_set)
-    ctr_train_fts = ctr_eval.get_features(train_set)
-    ctr_test_fts = ctr_eval.get_features(test_set)
     ctr_fts_path = os.path.join(cfg["data_dir"], "../numpy_files/ctr_features")
     np.savez(ctr_fts_path,
-        ctr_Ftr=ctr_train_fts,
-        ctr_Ftt=ctr_test_fts,
+        ctr_Ftr=ctr_eval.train_features,
+        ctr_Ftt=ctr_eval.test_features,
         ctr_pth=opt.ctr_path,
     )
     print(f"Saved ood-supervised CTR features at: {ctr_fts_path} !")

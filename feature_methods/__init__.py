@@ -13,7 +13,7 @@ from .ood_supervised_ctr import OODSupervisedCTR
 from .ood_supervised_ctr import OODSupervisedCTRFeatureSpace
 
 
-def load_model(options: dict) -> Model:
+def load_model(options: dict, mode="training") -> Model:
     if options["method"] == ConvAutoEncoder._key():
         model = ConvAutoEncoder(options)
     elif options["method"] == OODSupervisedCNN._key():
@@ -22,6 +22,9 @@ def load_model(options: dict) -> Model:
         model = OODSupervisedCTR(options)
     else:
         raise NotImplementedError(f'requested model not implemented: {options["method"]}')
+    
+    if mode == "testing":
+        model.load(options["save_path"])
 
     return model
 

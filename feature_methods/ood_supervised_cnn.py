@@ -121,7 +121,7 @@ class OODSupervisedCNN(Model):
 
 class OODSupervisedCNNFeatureSpace(FeatureSpace):
     def get_features(self, dset):
-        self.feature_model.eval()
+        self.feature_model.model.eval()
         features = []
         ldr = DataLoader(dset, batch_size=32, shuffle=False)
         for j, (images, labels) in enumerate(tqdm(ldr)):

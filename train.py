@@ -111,7 +111,7 @@ def main():
     feature_model.train_model(train_loader, val_loader)
 
     # done
-    print(f'==> Model name: {options["save"]} !')
+    print(f'==> Model name: {options["model_name"]} !')
     print(f'==> Model is saved at: {options["save_path"]} !')
 
 if __name__ == "__main__":

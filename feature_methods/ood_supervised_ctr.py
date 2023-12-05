@@ -22,7 +22,7 @@ class OODSupervisedCTR(Model):
             head=self.options["projection"]
         )
         # GPU support
-        if self.options["device"] == "cuda":
+        if self.device == "cuda":
             # no parallelization
             model = model.cuda()
             cudnn.benchmark = True
@@ -111,14 +111,14 @@ class OODSupervisedCTR(Model):
 
 class OODSupervisedCTRFeatureSpace(FeatureSpace):
     def get_features(self, dset):
-        self.feature_model.eval()
+        self.feature_model.model.eval()
         features = []
         ldr = DataLoader(dset, batch_size=32, shuffle=False)
         for j, (images, labels) in enumerate(tqdm(ldr)):
             with torch.no_grad():
                 images = torch.cat([images, images, images], dim=1)
-                images = images.to(self.device)
-                outputs = self.feature_model.model.module.encoder(images)
+                images = images.to(self.feature_model.device)
+                outputs = self.feature_model.model.encoder(images)
                 norm_outputs = F.normalize(outputs)
                 features.append(norm_outputs.detach().cpu().numpy())
         return np.vstack(features)

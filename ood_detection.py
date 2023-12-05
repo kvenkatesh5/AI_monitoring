@@ -12,41 +12,34 @@ from sklearn.metrics import confusion_matrix
 from scipy.linalg import pinv
 from tqdm import tqdm
 
+from utils import set_seed
+
 with open("cfg.json", "r") as f:
     cfg = json.load(f)
 
+# fancy metric name
+metrics = {
+    "cosine": "Cosine Similarity",
+    "mahalanobis": "Mahalanobis Distance"
+}
+
 """Apply SPC rules (per image)"""
-def apply_spc_rules(data, mean, std):
+def apply_spc_rules(data, mean, std, metric_name):
     """Detects SPC rule violations."""
-    violations = {"Rule 1": [], "Rule 2": [], "Rule 3": [], "Rule 4": [], "Rule 5": [], "Rule 6": []}
+    violations = {"Rule 1": []}
 
     for i in range(len(data)):
-        # Rule 1: Any single data point more than 3σ from the center line.
-        if abs(data[i] - mean) > 3 * std:
-            violations["Rule 1"].append(i)
-
-        """Not unit-tested implementations of SPC rules 2-6
-        # Rule 2 (adjusted): Nine points in a row on one side of the center line.
-        if i >= 8 and (all(d > mean for d in data[i-8:i+1]) or all(d < mean for d in data[i-8:i+1])):
-            violations["Rule 2"].extend(list(range(i-8, i+1)))
-
-        # Rule 3: Six (or more) points in a row, all increasing (or decreasing).
-        if i >= 5 and all(data[j] < data[j+1] for j in range(i-5, i)) or all(data[j] > data[j+1] for j in range(i-5, i)):
-            violations["Rule 3"].extend(list(range(i-5, i+1)))
-
-        # Rule 4: Fourteen (or more) points in a row, alternating up and down.
-        if i >= 13 and all((data[j] < data[j+1] and data[j+1] > data[j+2]) or
-                           (data[j] > data[j+1] and data[j+1] < data[j+2]) for j in range(i-13, i, 2)):
-            violations["Rule 4"].extend(list(range(i-13, i+1)))
-
-        # Rule 5: Two out of three points more than 2σ from the center line, same side.
-        if i >= 2 and sum(1 for j in range(i-2, i+1) if abs(data[j] - mean) > 2 * std) >= 2:
-            violations["Rule 5"].extend(list(range(i-2, i+1)))
-
-        # Rule 6: Four (or five) out of five points more than 1σ from the center line, same side.
-        if i >= 4 and sum(1 for j in range(i-4, i+1) if abs(data[j] - mean) > std) >= 4:
-            violations["Rule 6"].extend(list(range(i-4, i+1)))
-        """
+        # Rule 1: Any single data point more than 3σ in absolute distance from the center line.
+        # For cosine similarity: only check the lower bound
+        # For Mahalanobis distance: only check the upper bound 
+        if metric_name == "cosine":
+            if data[i] < (mean - 3 * std):
+                violations["Rule 1"].append(i)
+        elif metric_name == "mahalanobis":
+            if data[i] > (mean + 3 * std):
+                violations["Rule 1"].append(i)
+        else:
+            raise NotImplementedError(f"requested metric does not ahve Rule 1 implemented: {metric_name}")
 
     return violations
 
@@ -61,17 +54,32 @@ def ood_visualization(distances, mean, UCL, LCL, rule, ood_labels=None, metric_n
     plt.figure(figsize=(16, 6))
     plt.plot(distances, color='black', marker='o', markersize=4, linestyle='-')
     plt.axhline(y=mean, color='black', linestyle='-')
-    plt.axhline(y=UCL, color='black', linestyle='--')
-    plt.axhline(y=LCL, color='black', linestyle='--')
-    plt.fill_between(range(len(distances)), LCL, UCL, color='grey', alpha=0.1)
+    if metric_name == "cosine":
+        plt.axhline(y=np.clip(UCL, a_min=0.0, a_max=1.0), color='black', linestyle='--')
+        plt.axhline(y=np.clip(LCL, a_min=0.0, a_max=1.0), color='black', linestyle='--')
+        plt.fill_between(range(len(distances)), \
+                        np.clip(LCL, a_min=0.0, a_max=1.0), \
+                        np.clip(UCL, a_min=0.0, a_max=1.0), \
+                        color='grey', alpha=0.1)
+    else:
+        plt.axhline(y=UCL, color='black', linestyle='--')
+        plt.axhline(y=LCL, color='black', linestyle='--')
+        plt.fill_between(range(len(distances)), \
+                        LCL, \
+                        UCL, \
+                        color='grey', alpha=0.1)
 
-    plt.xlabel('Image Sequence', fontsize=12)
-    plt.ylabel(metric_name, fontsize=12)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
+    # For presentation purposes, disable axes
+    # plt.xlabel('Image Sequence', fontsize=12)
+    # plt.ylabel(metrics[metric_name], fontsize=12)
+    # plt.xticks(fontsize=12)
+    # plt.yticks(fontsize=12)
+    
+    plt.xticks([])
+    plt.yticks([])
 
     # Assuming you have a function apply_spc_rules() which was not provided in your code
-    violations = apply_spc_rules(distances, mean, (UCL - mean) / 3)
+    violations = apply_spc_rules(distances, mean, (UCL - mean) / 3, metric_name)
 
     for idx in violations[rule]:
         plt.plot(idx, distances[idx], '*', color='grey', markersize=16, label='Auto OOD')
@@ -83,29 +91,29 @@ def ood_visualization(distances, mean, UCL, LCL, rule, ood_labels=None, metric_n
         """Compute confusion matirx"""
         cfm = make_confusion_matrix(violations[rule], ood_labels)
         tn, fp, fn, tp = cfm.ravel()
-        # Precision
-        if tp + fp == 0:
-            precision = np.nan
+        # Specificity
+        if tn + fp == 0:
+            specificity = np.nan
         else:
-            precision = tp / (tp + fp)
-        # Recall
+            specificity = tn / (tn + fp)
+        # Sensitivity
         if tp + fn == 0:
-            recall = np.nan
+            sensitivity = np.nan
         else:
-            recall = tp / (tp + fn)
+            sensitivity = tp / (tp + fn)
         # Acc
         acc = (tp + tn) / (tp + tn + fp + fn)
         # Print
-        print(f"Accuracy: {acc:.4f} | Precision: {precision:.4f} | Recall: {recall:.4f}")
+        print(f"Accuracy: {acc:.4f} | Specificity: {specificity:.4f} | Sensitivity: {sensitivity:.4f}")
 
     plt.xlim(0, len(distances) - 1)
-    if metric_name == "Cosine Similarity":
+    if metric_name == "cosine":
         plt.ylim(0, 1.5)
 
     # Ensure no duplicate labels in the legend
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys(), loc='upper right')
+    # plt.legend(by_label.values(), by_label.keys(), loc='upper right')
 
     plt.savefig(figure_path)
 
@@ -136,7 +144,7 @@ def compute_mahalanobis_distance(tr_features_, tt_features_):
     return distances
 
 """Compute control limits"""
-def compute_control_limits(tr_features, tt_features, ood_labels, metric):
+def compute_control_limits(tr_features, tt_features, metric):
     # Control similarities
     if metric == "cosine":
         train_distances = compute_cosine_similarity(tr_features, tr_features)
@@ -156,7 +164,7 @@ def compute_control_limits(tr_features, tt_features, ood_labels, metric):
     return train_distances, test_distances, train_mean, train_std, train_UCL, train_LCL
 
 """OOD statistics"""
-def ood_statistics(tr_features, tt_features, ood_labels, metric, n=1000, rule="Rule 1"):
+def ood_statistics(tr_features, tt_features, ood_labels, metric, n=100, rule="Rule 1"):
     # Precompute training similarities
     if metric == "cosine":
         fxn = compute_cosine_similarity
@@ -170,42 +178,44 @@ def ood_statistics(tr_features, tt_features, ood_labels, metric, n=1000, rule="R
     train_std = np.std(train_distances)
     # Bootstrap arrays
     accuracy = []
-    precision = []
-    recall = []
+    sensitivity = []
+    specificity = []
     # Bootstrap loop
-    random.seed(2022)
     for i in tqdm(range(n)):
         # Pick a subset of the testing images
-        indices = random.sample(list(range(tt_features.shape[0])), k=100)
-        tt_subset = tt_features[indices, :]
-        ood_labels_subset = ood_labels[indices]
+        sample = np.random.randint(low=0, high=tt_features.shape[0], size=500)
+        tt_subset = tt_features[sample, :]
+        ood_labels_subset = ood_labels[sample]
         # Calculate test similarities on subset
         tt_subset_distances = fxn(tr_features, tt_subset)
-        # Calculate OOD detection accuracy/precision/recall
-        violations = apply_spc_rules(tt_subset_distances, train_mean, train_std)
-        ood_preds_subset = [0 for _ in range(len(ood_labels_subset))]
+        # Calculate OOD detection accuracy/precision/sensitivity/specificity
+        violations = apply_spc_rules(tt_subset_distances, train_mean, train_std, metric)
+        ood_preds_subset = [0 for _ in range(len(tt_subset_distances))]
         for jj in violations[rule]:
             ood_preds_subset[jj] = 1
         cmatrix = confusion_matrix(ood_labels_subset, ood_preds_subset)
         tn, fp, fn, tp = cmatrix.ravel()
+        # Specificity
         try:
-            precision.append(tp / (tp + fp))
+            specificity.append(tn / (tn + fp))
         except RuntimeWarning:
-            precision.append(np.nan)
+            specificity.append(np.nan)
+        # Sensitivity
         try:
-            recall.append(tp / (tp + fn))
+            sensitivity.append(tp / (tp + fn))
         except RuntimeWarning:
-            recall.append(np.nan)
+            sensitivity.append(np.nan)
+        # Accuracy
         accuracy.append((tp + tn) / (tp + tn + fp + fn))
     # Report bootstrap results
     print(
         f"Accuracy: {np.mean(accuracy):.4f} [{(np.mean(accuracy) - np.std(accuracy)):.4f}, {(np.mean(accuracy) + np.std(accuracy)):.4f}]"
     )
     print(
-        f"Precision: {np.nanmean(precision):.4f} [{(np.nanmean(precision) - np.nanstd(precision)):.4f}, {(np.nanmean(precision) + np.nanstd(precision)):.4f}]"
+        f"Specificity: {np.nanmean(specificity):.4f} [{(np.nanmean(specificity) - np.nanstd(specificity)):.4f}, {(np.nanmean(specificity) + np.nanstd(specificity)):.4f}]"
     )
     print(
-        f"Recall: {np.nanmean(recall):.4f} [{(np.nanmean(recall) - np.nanstd(recall)):.4f}, {(np.nanmean(recall) + np.nanstd(recall)):.4f}]"
+        f"Sensitivity: {np.nanmean(sensitivity):.4f} [{(np.nanmean(sensitivity) - np.nanstd(sensitivity)):.4f}, {(np.nanmean(sensitivity) + np.nanstd(sensitivity)):.4f}]"
     )
 
 """Parse args"""
@@ -218,16 +228,9 @@ def parse_options():
     # extract
     opt = parser.parse_args()
 
-    # fancy metric name
-    metrics = {
-        "cosine": "Cosine Similarity",
-        "mahalanobis": "Mahalanobis Distance"
-    }
-
     # Make options dictionary
     options = {
         "metric": opt.metric,
-        "metric_fancy": metrics[opt.metric],
         "method": opt.method,
         "positive_dataset": "organamnist", # hard coded
         "data_dir": cfg["data_dir"]
@@ -240,13 +243,15 @@ def main():
     options = parse_options()
 
     # Load data from npz
-    D = np.load("./numpy_files/data_splits.npz")
+    data_splits_path = "./numpy_files/data_splits.npz"
+    D = np.load(data_splits_path)
     Xtr = D["Xtr"]
     ytr = D["ytr"]
     Xvl = D["Xvl"]
     yvl = D["yvl"]
     Xtt = D["Xtt"]
     ytt = D["ytt"]
+    print(f"Loaded data splits from: {data_splits_path} !")
 
     # Get features
     if options["method"] == "autoencoder":
@@ -271,17 +276,17 @@ def main():
     ood_statistics(Ftr_, Ftt, 1 - ytt, options["metric"], n=1000)
 
     # Plot OOD chart for one particular subset
-    random.seed(2021)
     ridx, num = random.randint(a=0, b=Ftt.shape[0]-101), 100
     Ftt_ = Ftt[ridx:(ridx+num)]
     ytt_ = ytt[ridx:(ridx+num)]
     # ood_labels_ assigns 1 to all OOD images and 0 to all ID images
     ood_labels_ = 1-ytt_
     train_distances, test_distances, train_mean, train_std, train_UCL, train_LCL = \
-        compute_control_limits(Ftr_, Ftt_, ood_labels_, options["metric"])
-    figure_pth = f"./figs/ood_{options['method']}_{options['metric']}.png"
+        compute_control_limits(Ftr_, Ftt_, options["metric"])
+    figure_pth = f"./figs-tmp/ood_{options['method']}_{options['metric']}.png"
     ood_visualization(test_distances, train_mean, train_UCL, train_LCL, \
-                      "Rule 1", ood_labels_, options["metric_fancy"], figure_pth)
+                      "Rule 1", ood_labels_, options["metric"], figure_pth)
 
 if __name__ == "__main__":
+    set_seed(2001)
     main()
