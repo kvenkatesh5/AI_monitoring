@@ -5,12 +5,7 @@ import argparse
 import os
 import json
 import time
-from copy import deepcopy
 
-import numpy as np
-from tqdm import tqdm
-import torch
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
@@ -77,8 +72,8 @@ def parse_options():
 
     # storage files
     opt.model_path = './saves'
-    opt.model_name = '{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
-        format(opt.method, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
+    opt.model_name = '{}_{}_{}_dtfm{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
+        format(opt.method, opt.base_model, opt.dataset, opt.dataset_transforms, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")
 
     # make options dictionary
@@ -99,6 +94,7 @@ def parse_options():
         "learning_rate": opt.learning_rate,
         "print_mode": opt.print_mode,
         "save_path": opt.save_path,
+        "model_name": opt.model_name,
     }
 
     return options
@@ -115,6 +111,7 @@ def main():
     feature_model.train_model(train_loader, val_loader)
 
     # done
+    print(f'==> Model name: {options["save"]} !')
     print(f'==> Model is saved at: {options["save_path"]} !')
 
 if __name__ == "__main__":

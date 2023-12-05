@@ -1,28 +1,29 @@
 """
-Implementations of supervised contrastive learning (SupCon).
+Implementations of model + feature extraction for OOD supervised contrastive learning (SupCon).
 """
-from copy import deepcopy
-
 from tqdm import tqdm
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
 from .base import Model
+from .base import FeatureSpace
 from .supcon_loss import SupConLoss
-from feature_methods.resnet_big import SupConResNet
+from .resnet_big import SupConResNet
 
 
-class SupervisedCTR(Model):
+class OODSupervisedCTR(Model):
     def init_model(self):
         # create model
-        model = SupConResNet(self.options["base_model"], self.options["projection"])
+        model = SupConResNet(
+            name=self.options["base_model"],
+            head=self.options["projection"]
+        )
         # GPU support
-        if torch.cuda.is_available():
-            # use parallelization if available
-            if torch.cuda.device_count() > 1:
-                print(f"==> Using {torch.cuda.device_count()} GPUs in parallel mode!")
-                model = torch.nn.DataParallel(model)
+        if self.options["device"] == "cuda":
+            # no parallelization
             model = model.cuda()
             cudnn.benchmark = True
         return model
@@ -91,12 +92,7 @@ class SupervisedCTR(Model):
             self.best_loss = epoch_val_loss
             self.best_epoch_number = self.current_epoch_number
             self.save_model(
-                model_copy=deepcopy(self.model),
-                options=self.options,
-                optimizer=self.optimizer,
-                epoch_number=self.current_epoch_number,
                 epoch_val_loss=epoch_val_loss,
-                save_path=self.options["save_path"]
             )
         # save loss history
         self.train_loss_history.append(epoch_train_loss)
@@ -111,3 +107,18 @@ class SupervisedCTR(Model):
     @staticmethod
     def _key():
         return "supervised-ctr"
+
+
+class OODSupervisedCTRFeatureSpace(FeatureSpace):
+    def get_features(self, dset):
+        self.feature_model.eval()
+        features = []
+        ldr = DataLoader(dset, batch_size=32, shuffle=False)
+        for j, (images, labels) in enumerate(tqdm(ldr)):
+            with torch.no_grad():
+                images = torch.cat([images, images, images], dim=1)
+                images = images.to(self.device)
+                outputs = self.feature_model.model.module.encoder(images)
+                norm_outputs = F.normalize(outputs)
+                features.append(norm_outputs.detach().cpu().numpy())
+        return np.vstack(features)

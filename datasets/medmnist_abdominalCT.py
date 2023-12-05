@@ -3,16 +3,21 @@ Implementation of MedMNIST AbnominalCT dataset class.
 Source: https://medmnist.com/ (see Organ{A/C/S}MNIST)
 """
 import json
-import os
 import random
 
 import medmnist
 from medmnist import INFO
+import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
 
+from utils import set_seed
+
 class AbnominalCTDataset(Dataset):
-    def __init__(self, data_dir, split, label_mode="unsupervised", positive_dataset="organamnist", tfms=None, image_size=28, random_seed=2023):
+    def __init__(self, data_dir, split, label_mode, positive_dataset="organamnist", tfms=None, random_seed=1001):
+        # set random seeds
+        set_seed(random_seed)
+        
         self.data_flags = [
             "organamnist", "organcmnist", "organsmnist"
         ]

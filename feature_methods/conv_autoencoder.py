@@ -2,14 +2,15 @@
 Implementation of convolutional autoencoder architecture + model class
 Source: https://lightning.ai/docs/pytorch/stable/notebooks/course_UvA-DL/08-deep-autoencoders.html
 """
-from copy import deepcopy
-
+import numpy as np
 from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
 
 from .base import Model
+from .base import FeatureSpace
 
 class Encoder(nn.Module):
     def __init__(self, c_hid=16, latent_dim=100):
@@ -63,17 +64,17 @@ class ConvAutoEncoderCore(nn.Module):
         self.decoder = Decoder(c_hid, latent_dim)
     def forward(self, x):
         return self.decoder(self.encoder(x))
-    def get_features(self, x):
+    def features(self, x: torch.Tensor):
         return self.encoder(x)
 
 
-"""Child of `Model` class"""
+# child of `Model` class
 class ConvAutoEncoder(Model):
-    def init_model(self):
+    def init_model(self) -> ConvAutoEncoderCore:
         return ConvAutoEncoderCore(
             c_hid = self.options["c_hid"],
             latent_dim = self.options["latent_dim"],
-        )
+        ).to(self.device)
 
     def set_loss_function(self):
         return torch.nn.MSELoss()
@@ -121,12 +122,7 @@ class ConvAutoEncoder(Model):
             self.best_loss = epoch_val_loss
             self.best_epoch_number = self.current_epoch_number
             self.save_model(
-                model_copy=deepcopy(self.model),
-                options=self.options,
-                optimizer=self.optimizer,
-                epoch_number=self.current_epoch_number,
                 epoch_val_loss=epoch_val_loss,
-                save_path=self.options["save_path"]
             )
         # save loss history
         self.train_loss_history.append(epoch_train_loss)
@@ -141,3 +137,20 @@ class ConvAutoEncoder(Model):
     @staticmethod
     def _key():
         return "conv-autoencoder"
+
+
+# child of `FeatureSpace` class
+class ConvAutoEncoderFeatureSpace(FeatureSpace):
+    def get_features(self, dset: Dataset):
+        self.feature_model.model.eval()
+        features = []
+        ldr = DataLoader(dset, batch_size=32, shuffle=False)
+        for j, (images, labels) in enumerate(tqdm(ldr)):
+            with torch.no_grad():
+                # make grayscale image into 3 channels
+                images = torch.cat([images, images, images], dim=1)
+                images = images.to(self.feature_model.device)
+                # extract features using `features()` method from ConvAutoEncoderCore
+                fts = self.feature_model.model.features(images).detach().cpu().numpy()
+                features.append(fts)
+        return np.vstack(features)
