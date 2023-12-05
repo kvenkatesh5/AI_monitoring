@@ -8,27 +8,25 @@ Construct folder structure as follows.
 ├── bash_scripts/
 ├── cfg.json
 ├── data/
+├── datasets/
+├── feature_methods/
 ├── features.py
 ├── figs/
-├── medmnist_datasets.py
-├── networks
-│   ├── conv_autoencoder.py
-│   └── resnet_big.py
+├── get_features.py
+├── notebooks/
 ├── numpy_files/
 ├── ood_detection.py
 ├── README.md
 ├── requirements.txt
 ├── saves/
-├── train_autoencoder.py
-├── train_cnn.py
-├── train_contrastive.py
+├── train.py
 └── utils.py
 ```
 ## Training models
-Training scripts for each feature-extraction method (convolutional autoencoder, supervised CNN, supervised contrastive-learning) available in project directory: ```train_autoencoder.py```, ```train_cnn.py```, ```train_contrastive.py```. Respective bash scripts containing training hyperparameters are ```bash_scripts/autoencoder.py```, ```bash_scripts/cnn.py```, ```bash_scripts/ctr.py```. Running these scripts will save .pt files to the ```saves/``` directory.
+Training each feature-extraction method (convolutional autoencoder, supervised CNN, supervised contrastive-learning) is made available using a single script in project directory: ```train.py```. Bash scripts containing training hyperparameters are ```bash_scripts/autoencoder_runner.py```, ```bash_scripts/cnn_runner.py```, ```bash_scripts/ctr_runner.py```. Running these scripts will save .pt files to the ```saves/``` directory.
 ## Extract features
 ```features.py``` extracts features using each of the three approaches. Command-line arguments are each method's model path; see ```bash_scripts/features.py``` for an example. Numpy compressed files will be saved to ```numpy_files```.
 ## OOD Detection
 The extracted features are then statistically evaluated for OOD detection using the ```ood_detection.py``` script. Command-line arguments are metric (cosine or mahalonobis) and method (see above). Bootstrapped confidence intervals for accuracy, precision, and recall are printed to screen; a sample OOD detection plot (in the style of SPC charts) is saved to ```figs/```.
-## CUSUM & Bernoulli CUSUM
-See ```notebooks/CT_SPC_Charts.ipynb``` for CUSUM and Bernoulli CUSUM plots for a simulated scenario over 100 days.
+## SPC-based monitoring experiments
+See ```notebooks/CT_SPC_Simulation.ipynb``` for simulation experiments.
