@@ -275,17 +275,18 @@ def main():
     # Number of bootstrap samples = 1000
     ood_statistics(Ftr_, Ftt, 1 - ytt, options["metric"], n=1000)
 
-    # Plot OOD chart for one particular subset
-    ridx, num = random.randint(a=0, b=Ftt.shape[0]-101), 100
-    Ftt_ = Ftt[ridx:(ridx+num)]
-    ytt_ = ytt[ridx:(ridx+num)]
-    # ood_labels_ assigns 1 to all OOD images and 0 to all ID images
-    ood_labels_ = 1-ytt_
-    train_distances, test_distances, train_mean, train_std, train_UCL, train_LCL = \
-        compute_control_limits(Ftr_, Ftt_, options["metric"])
-    figure_pth = f"./figs-tmp/ood_{options['method']}_{options['metric']}.png"
-    ood_visualization(test_distances, train_mean, train_UCL, train_LCL, \
-                      "Rule 1", ood_labels_, options["metric"], figure_pth)
+    # Visualization is available in notebook
+    # # Plot OOD chart for one particular subset
+    # ridx, num = random.randint(a=0, b=Ftt.shape[0]-101), 100
+    # Ftt_ = Ftt[ridx:(ridx+num)]
+    # ytt_ = ytt[ridx:(ridx+num)]
+    # # ood_labels_ assigns 1 to all OOD images and 0 to all ID images
+    # ood_labels_ = 1-ytt_
+    # train_distances, test_distances, train_mean, train_std, train_UCL, train_LCL = \
+    #     compute_control_limits(Ftr_, Ftt_, options["metric"])
+    # figure_pth = f"./figs-tmp/ood_{options['method']}_{options['metric']}.png"
+    # ood_visualization(test_distances, train_mean, train_UCL, train_LCL, \
+    #                   "Rule 1", ood_labels_, options["metric"], figure_pth)
 
 if __name__ == "__main__":
     set_seed(2001)
