@@ -157,8 +157,11 @@ class CUSUMChangeDetector:
         average_detection_delay = np.mean(AvgDD) if AvgDD else None
 
         # Calculate MTBFA and FAR
-        MTBFA = pre_change_days / len(FalsePos) if FalsePos else float('inf')
-        FalseAlarmRate = len(FalsePos) / pre_change_days if FalsePos else 0        
+        #MTBFA = pre_change_days / len(FalsePos) if FalsePos else float('inf')  #Commenting the earlier verion of MTBFA
+        #FalseAlarmRate = len(FalsePos) / pre_change_days if FalsePos else 0    #Commenting the earlier version of FAR
+
+        MTBFA          = np.mean(FalsePos)  # Refer Sahki et. al. Performance Study of detection thresholds for CUSUM statistic in a sequen                                            # tial context
+        FalseAlarmRate = 1/MTBFA            # False alarm rate formula from the above reference (Sahki et. al.)
 
         summary_metrics.append({
             "Threshold"              : control_limit,
