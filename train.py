@@ -36,7 +36,6 @@ def parse_options():
 
     # data arguments
     parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"])
-    parser.add_argument('--dataset_transforms', type=str, default='default')
     parser.add_argument('--positive_dataset', type=str, default='organamnist',
                             help='which dataset is in-distribution')
 
@@ -62,18 +61,10 @@ def parse_options():
     }
     id_view = views[opt.positive_dataset.replace("organ", "")[0].capitalize()]
 
-    # set dataset transforms
-    if opt.dataset_transforms == "default":
-        dataset_transforms = transforms.Compose([
-            transforms.ToTensor(), transforms.Normalize(mean=[.5], std=[.5])
-        ])
-    else:
-        raise NotImplementedError(f"requested transform is not implemented: {opt.dataset_transforms}")
-
     # storage files
     opt.model_path = './saves'
-    opt.model_name = '{}_{}_{}_dtfm{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
-        format(opt.method, opt.base_model, opt.dataset, opt.dataset_transforms, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
+    opt.model_name = '{}_{}_{}_defaulttfms_lr{}_bsz{}_nep{}_indist{}_time{}'.\
+        format(opt.method, opt.base_model, opt.dataset, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")
 
     # make options dictionary
@@ -87,7 +78,6 @@ def parse_options():
         "projection": opt.projection,
         "temp": opt.temp,
         "dataset": opt.dataset,
-        "dataset_transforms": dataset_transforms,
         "positive_dataset": opt.positive_dataset,
         "batch_size": opt.batch_size,
         "max_epochs": opt.max_epochs,

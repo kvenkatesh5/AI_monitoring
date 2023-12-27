@@ -7,17 +7,21 @@ import random
 
 import medmnist
 from medmnist import INFO
-import torch
+import torchvision
 from torchvision import transforms
 from torch.utils.data import Dataset
 
 from utils import set_seed
 
 class AbnominalCTDataset(Dataset):
-    def __init__(self, data_dir, split, label_mode, positive_dataset="organamnist", tfms=None, random_seed=1001):
+    def __init__(self, data_dir, split, label_mode, positive_dataset="organamnist", \
+                 tfms=None, random_seed=1001):
         # set random seeds
         set_seed(random_seed)
-        
+
+        # set dataset transform
+        self.tfms = tfms
+
         self.data_flags = [
             "organamnist", "organcmnist", "organsmnist"
         ]
@@ -26,7 +30,7 @@ class AbnominalCTDataset(Dataset):
         }
         self.data_list = [
             getattr(medmnist, INFO[self.data_flags[i]]['python_class'])\
-                (split=split, transform=tfms, download=True, root=data_dir, as_rgb=False)\
+                (split=split, transform=self.tfms, download=True, root=data_dir, as_rgb=False)\
                 for i in range(len(self.data_flags))
         ]
         # all three datasets have the same task & label
@@ -60,8 +64,8 @@ class AbnominalCTDataset(Dataset):
         else:
             return image, class_label, self.data_flags[ai] 
 
+    # reduce 'global' index to the correct 'internal dataset' index
     def reduce_index(self, j):
-        """reduce 'global' index to the correct 'internal dataset' index"""
         if j < self.l1:
             return j, 0
         elif (j < self.l1 + self.l2):
@@ -74,46 +78,9 @@ class AbnominalCTDataset(Dataset):
     def __len__(self):
         return self.length
     
-    def get_n_classes(self):
-        if self.label_mode == "cheap-supervised":
-            return 3
-        else:
-            # n of image labels
-            return self.n_classes
-    
-    def get_positive_name(self):
-        return self.positive_dataset
-
-"""Load dataset with default transformations"""
-def load_default_data(opt):
-    # Baseline transform
-    data_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[.5], std=[.5])
-    ])
-
-    """training dataset"""
-    train_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
-                        split="train")
-    """val dataset"""
-    val_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
-                        split="val")
-    """testing dataset"""
-    test_set = AbnominalCTDataset(data_dir=opt["data_dir"], label_mode="cheap-supervised",
-                        positive_dataset=opt["positive_dataset"], tfms=data_transform,
-                        split="test")
-    
-    return train_set, val_set, test_set
-
-
-def debug():
-    with open("cfg.json", "r") as f:
-        cfg = json.load(f)
-    d = AbnominalCTDataset(cfg["data_dir"], "train", label_mode="cheap-supervised")
-    print(d[60000])
-
-
-if __name__ == "__main__":
-    debug()
+    @staticmethod
+    def get_default_transform() -> torchvision.transforms.Compose:
+        dataset_transforms = transforms.Compose([
+            transforms.ToTensor(), transforms.Normalize(mean=[.5], std=[.5])
+        ])
+        return dataset_transforms

@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 class CUSUMChangeDetector:
-    def __init__(self, pre_change_days, total_days, ref_val, control_limit, delta):
+    def __init__(self, pre_change_days, total_days, control_limit):
 
         """
         Initializes the CUSUM Detector with in-control mean, threshold, based on .
@@ -31,18 +31,20 @@ class CUSUMChangeDetector:
         Parameters:
         - pre_change_days (int) : Number of days the process is in-control
         - total_days (int)      : Total number of days in the experiment/simulation
-        - ref_val               : shift in the observations to be detected
+        - ref_val               : shift in the observations to be detected [UNUSED]
         - control_limit         : Upper or Lower control limit (detection threshold)
-        - delta (float)         : Change magnitude to detect in terms of standard deviations
+        - delta (float)         : Change magnitude to detect in terms of standard deviations [UNUSED]
         """
         self.pre_change_days        = pre_change_days
         self.total_days             = total_days
-        self.ref_val                = ref_val
         self.control_limit          = control_limit
-        self.delta                  = delta
-        #self.CUSUM_data_average_day = CUSUM_data_average_day        
+        self.summary_table          = pd.DataFrame(
+            columns=["k value", "Threshold", "False Positives", "True Positives",
+                      "Average Detection Delay", "MTBFA", "False Alarm Rate"]
+        )
+        self.n_experiments = 0
 
-    def plotCUSUM(self, signal, S_hi, S_lo, h):
+    def plotCUSUM(self, signal, S_hi, S_lo, h, save_plot=False):
         """
         Plot the cumulative sum of positive and negative changes
         Parameters:
@@ -56,13 +58,13 @@ class CUSUMChangeDetector:
         ax.plot(S_lo, label='Low Side CUSUM', color='green')
         ax.axhline(y=h, color='black', linestyle='--', linewidth=2, label='Threshold (+h)')
         ax.axhline(y=-h, color='black', linestyle='--', linewidth=2, label='Threshold (-h)')
-        ax.scatter(signal, [S_hi[i] for i in signal], color='grey', zorder=5, label='Detected Shift')
-        ax.scatter(signal, [S_lo[i] for i in signal], color='grey', zorder=5)
+        ax.scatter(signal, [S_hi[i] for i in signal], color='black', zorder=5, label='Detected Shift')
+        ax.scatter(signal, [S_lo[i] for i in signal], color='black', zorder=5)
 
         # Indicate the first shift point
-        ax.axvline(x=20, color='purple', linestyle='--', label='First Shift')  # Purple line for shift start
+        ax.axvline(x=self.pre_change_days, color='purple', linestyle='--', label='First Shift')  # Purple line for shift start
         # Indicate the second shift point
-        ax.axvline(x=60, color='purple', linestyle='--', label='Second Shift')  # Purple line for shift start
+        ax.axvline(x=self.total_days, color='purple', linestyle='--', label='Second Shift')  # Purple line for shift start
 
         #ax.set_title(f'Processing for k = {k}')
         ax.set_facecolor('white')  # White background
@@ -71,7 +73,8 @@ class CUSUMChangeDetector:
         ax.set_ylabel('CUSUM Value')
         ax.legend()
         ax.grid(True, color='lightgrey')  # Black grid lines
-        plt.savefig("CUSUM.png") 
+        if save_plot:
+            plt.savefig("../figs/CUSUM.png") 
         plt.show()
 
     def computeCUSUM(self, x, mu0, k, h):
@@ -102,7 +105,7 @@ class CUSUMChangeDetector:
         return signal, S_hi, S_lo
 
 
-    def changeDetection(self, CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th):  #k_th = ref_val
+    def changeDetection(self, CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th, save_plot=False):  #k_th = ref_val
         """
         Detect the changepoint using CUSUM 
         Parameters:
@@ -136,8 +139,8 @@ class CUSUMChangeDetector:
         signal, S_hi, S_lo = self.computeCUSUM(CUSUM_data_average_day, mu_in, k, h)
 
         # Plot the CUSUM positive and negative changes
-        # CAll plot function here
-        self.plotCUSUM(signal, S_hi, S_lo, h)
+        # Call plot function here
+        self.plotCUSUM(signal, S_hi, S_lo, h, save_plot)
         
         # Initialize summary_metrics list here
         summary_metrics = []
@@ -163,17 +166,12 @@ class CUSUMChangeDetector:
         MTBFA          = np.mean(FalsePos)  # Refer Sahki et. al. Performance Study of detection thresholds for CUSUM statistic in a sequen                                            # tial context
         FalseAlarmRate = 1/MTBFA            # False alarm rate formula from the above reference (Sahki et. al.)
 
-        summary_metrics.append({
-            "Threshold"              : control_limit,
-            "False Positives"        : len(FalsePos),
-            "True Positives"         : len(TruePos),
-            "Average Detection Delay": np.mean(AvgDD) if AvgDD else None,
-            "MTBFA"                  : MTBFA,
-            "False Alarm Rate"       : FalseAlarmRate
-        })
+        # Append to summary dataframe
+        self.summary_table.loc[self.n_experiments] = [
+            k_th, control_limit, len(FalsePos), len(TruePos), average_detection_delay,\
+            MTBFA, FalseAlarmRate
+        ]
+        self.n_experiments += 1
 
-        # Create the summary DataFrame outside the loop
-        summary_df = pd.DataFrame(summary_metrics)
-
-        # Print the summary table
-        print(summary_df.to_string(index=False))
+    def summary(self):
+        return self.summary_table.to_string(index=False)

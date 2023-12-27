@@ -14,8 +14,7 @@ from datasets import load_data
 from feature_methods import load_model
 from feature_methods import load_eval
 
-"""Main fxn: extract each approach's features here
-since load_default_data changes ordering between calls"""
+"""Main fxn: extract each approach's features here"""
 def main():
     # Get model paths
     parser = argparse.ArgumentParser('command-line arguments')
@@ -49,14 +48,10 @@ def main():
     # see documentation of ```load_data```
     train_set, val_set, test_set = load_data({
         "dataset": opt.dataset,
-        # this argument ensures no TwoCrop is loaded
-        "method": "none",
         "data_dir": cfg["data_dir"],
         "positive_dataset": opt.positive_dataset,
-        # default training transform for MedMNIST_AbdominalCT
-        "dataset_transforms": transforms.Compose([
-            transforms.ToTensor(), transforms.Normalize(mean=[.5], std=[.5])
-        ]),
+        # this argument ensures that TwoCropTransform is not loaded
+        "method": "none",
     })
 
     # Matrixify datasets

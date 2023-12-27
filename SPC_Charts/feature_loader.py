@@ -41,6 +41,7 @@ def load_and_divide_features(feature_type, ytr, ytt, feature_dir='../numpy_files
 
     # Divide the features based on the labels
     train_features = Ftr[ytr == 1]
+    all_test_features = Ftt
     test_in_dist_features = Ftt[ytt == 1]
     test_out_dist_features = Ftt[ytt == 0]
 
@@ -48,4 +49,4 @@ def load_and_divide_features(feature_type, ytr, ytt, feature_dir='../numpy_files
     assert np.shape(test_in_dist_features)[0] + np.shape(test_out_dist_features)[0] == ytt.shape[0], \
         "Sum of in-distribution and out-of-distribution test features does not match total test set size"
 
-    return train_features, test_in_dist_features, test_out_dist_features
+    return train_features, all_test_features, test_in_dist_features, test_out_dist_features

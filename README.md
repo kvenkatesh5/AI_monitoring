@@ -29,4 +29,4 @@ Training each feature-extraction method (convolutional autoencoder, supervised C
 ## OOD Detection
 The extracted features are then statistically evaluated for OOD detection using the ```ood_detection.py``` script. Command-line arguments are metric (cosine or mahalonobis) and method (see above). Bootstrapped confidence intervals for accuracy, precision, and recall are printed to screen; a sample OOD detection plot (in the style of SPC charts) is saved to ```figs/```.
 ## SPC-based monitoring experiments
-See ```notebooks/CT_SPC_Simulation.ipynb``` for simulation experiments.
+See ```SPC_Charts/CT_SPC_Simulation.ipynb``` for simulation experiments.

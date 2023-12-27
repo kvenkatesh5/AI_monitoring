@@ -7,63 +7,40 @@ from tqdm import tqdm
 from .medmnist_abdominalCT import AbnominalCTDataset
 from feature_methods.supcon_loss import TwoCropTransform
 
+# Master function for loading datasets
 def load_data(options: dict):
     if options["dataset"] == "MedMNIST-AbdominalCT":
+        train_tfms = AbnominalCTDataset.get_default_transform()
+        val_tfms = AbnominalCTDataset.get_default_transform()
+        test_tfms = AbnominalCTDataset.get_default_transform()
         if options["method"] == "supervised-ctr":
-            # training dataset (apply TwoCropTransform)
-            train_set = AbnominalCTDataset(
-                data_dir=options["data_dir"],
-                label_mode="cheap-supervised",
-                positive_dataset=options["positive_dataset"],
-                tfms=TwoCropTransform(options["dataset_transforms"]),
-                split="train"
-            )
-            # validation dataset (apply TwoCropTransform)
-            val_set = AbnominalCTDataset(
-                data_dir=options["data_dir"],
-                label_mode="cheap-supervised",
-                positive_dataset=options["positive_dataset"],
-                tfms=TwoCropTransform(options["dataset_transforms"]),
-                split="val"
-            )
-            # testing dataset
-            test_set = AbnominalCTDataset(
-                data_dir=options["data_dir"],
-                label_mode="cheap-supervised",
-                positive_dataset=options["positive_dataset"],
-                tfms=options["dataset_transforms"],
-                split="test"
-            )
-        else:
-            # training dataset
-            train_set = AbnominalCTDataset(
-                data_dir=options["data_dir"],
-                label_mode="cheap-supervised",
-                positive_dataset=options["positive_dataset"],
-                tfms=options["dataset_transforms"],
-                split="train"
-            )
-            # validation dataset
-            val_set = AbnominalCTDataset(
-                data_dir=options["data_dir"],
-                label_mode="cheap-supervised",
-                positive_dataset=options["positive_dataset"],
-                tfms=options["dataset_transforms"],
-                split="val"
-            )
-            # testing dataset
-            test_set = AbnominalCTDataset(
-                data_dir=options["data_dir"],
-                label_mode="cheap-supervised",
-                positive_dataset=options["positive_dataset"],
-                tfms=options["dataset_transforms"],
-                split="test"
-            )
+            train_tfms = TwoCropTransform(train_tfms)
+            val_tfms = TwoCropTransform(val_tfms)
+        # train/val/test datasets
+        train_set = AbnominalCTDataset(
+            data_dir=options["data_dir"],
+            label_mode="cheap-supervised",
+            positive_dataset=options["positive_dataset"],
+            tfms=train_tfms,
+            split="train"
+        )
+        val_set = AbnominalCTDataset(
+            data_dir=options["data_dir"],
+            label_mode="cheap-supervised",
+            positive_dataset=options["positive_dataset"],
+            tfms=val_tfms,
+            split="val"
+        )
+        test_set = AbnominalCTDataset(
+            data_dir=options["data_dir"],
+            label_mode="cheap-supervised",
+            positive_dataset=options["positive_dataset"],
+            tfms=test_tfms,
+            split="test"
+        )
+        return train_set, val_set, test_set
     else:
-        raise NotImplementedError(f'requested dataset not available: {options["dataset"]}')
-    
-    return train_set, val_set, test_set
-
+        raise NotImplementedError(f"requested dataset is not available: {options['dataset']}")
 
 # reformat dataset into X,y matrix/vector pair
 def matrixify(dset, label_mode="cheap-supervised"):

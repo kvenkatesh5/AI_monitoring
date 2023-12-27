@@ -8,7 +8,7 @@ Created on Mon Nov 20 13:08:53 2023
 
 # data_shift_simulation.py
 
-# This is how you call this function into a juptor notebook. 
+# This is how you call this function into a Jupyter notebook. 
 # Importing the function from the Python file
 # from data_shift_simulation import simulate_data_shift
 
