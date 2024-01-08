@@ -13,17 +13,17 @@ Construct folder structure as follows.
 ├── features.py
 ├── figs/
 ├── get_features.py
+├── model_saves/
 ├── notebooks/
 ├── numpy_files/
 ├── ood_detection.py
 ├── README.md
 ├── requirements.txt
-├── saves/
 ├── train.py
 └── utils.py
 ```
 ## Training models
-Training each feature-extraction method (convolutional autoencoder, supervised CNN, supervised contrastive-learning) is made available using a single script in project directory: ```train.py```. Bash scripts containing training hyperparameters are ```bash_scripts/autoencoder_runner.py```, ```bash_scripts/cnn_runner.py```, ```bash_scripts/ctr_runner.py```. Running these scripts will save .pt files to the ```saves/``` directory.
+Training each feature-extraction method (convolutional autoencoder, supervised CNN, supervised contrastive-learning) is made available using a single script in project directory: ```train.py```. Bash scripts containing training hyperparameters are ```bash_scripts/autoencoder_runner.py```, ```bash_scripts/cnn_runner.py```, ```bash_scripts/ctr_runner.py```. Running these scripts will save .pt files to the ```model_saves/``` directory.
 ## Extract features
 ```features.py``` extracts features using each of the three approaches. Command-line arguments are each method's model path; see ```bash_scripts/features.py``` for an example. Numpy compressed files will be saved to ```numpy_files```.
 ## OOD Detection

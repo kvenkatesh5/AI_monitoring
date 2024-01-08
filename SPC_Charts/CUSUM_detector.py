@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 class CUSUMChangeDetector:
-    def __init__(self, pre_change_days, total_days, control_limit):
+    def __init__(self, pre_change_days, total_days):
 
         """
         Initializes the CUSUM Detector with in-control mean, threshold, based on .
@@ -31,13 +31,9 @@ class CUSUMChangeDetector:
         Parameters:
         - pre_change_days (int) : Number of days the process is in-control
         - total_days (int)      : Total number of days in the experiment/simulation
-        - ref_val               : shift in the observations to be detected [UNUSED]
-        - control_limit         : Upper or Lower control limit (detection threshold)
-        - delta (float)         : Change magnitude to detect in terms of standard deviations [UNUSED]
         """
         self.pre_change_days        = pre_change_days
         self.total_days             = total_days
-        self.control_limit          = control_limit
         self.summary_table          = pd.DataFrame(
             columns=["k value", "Threshold", "False Positives", "True Positives",
                       "Average Detection Delay", "MTBFA", "False Alarm Rate"]
@@ -105,7 +101,7 @@ class CUSUMChangeDetector:
         return signal, S_hi, S_lo
 
 
-    def changeDetection(self, CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th, save_plot=False):  #k_th = ref_val
+    def changeDetection(self, CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th, save_plot=False):
         """
         Detect the changepoint using CUSUM 
         Parameters:
@@ -126,7 +122,7 @@ class CUSUMChangeDetector:
         mu_out = np.mean(out_control_data)
         in_std = np.std(in_control_data)
 
-        k = (k_th * in_std)/2       #k=(delta*sigma)/2  This is the ref. val
+        k = (k_th * in_std)/2       # k = (delta*sigma)/2
         h = control_limit * in_std  # threshold
 
         # Initialize lists to store results
@@ -141,9 +137,6 @@ class CUSUMChangeDetector:
         # Plot the CUSUM positive and negative changes
         # Call plot function here
         self.plotCUSUM(signal, S_hi, S_lo, h, save_plot)
-        
-        # Initialize summary_metrics list here
-        summary_metrics = []
 
         # Calculate False Positives, True Positives, and Detection Delay
         for i in range(pre_change_days):
@@ -160,9 +153,6 @@ class CUSUMChangeDetector:
         average_detection_delay = np.mean(AvgDD) if AvgDD else None
 
         # Calculate MTBFA and FAR
-        #MTBFA = pre_change_days / len(FalsePos) if FalsePos else float('inf')  #Commenting the earlier verion of MTBFA
-        #FalseAlarmRate = len(FalsePos) / pre_change_days if FalsePos else 0    #Commenting the earlier version of FAR
-
         MTBFA          = np.mean(FalsePos)  # Refer Sahki et. al. Performance Study of detection thresholds for CUSUM statistic in a sequen                                            # tial context
         FalseAlarmRate = 1/MTBFA            # False alarm rate formula from the above reference (Sahki et. al.)
 

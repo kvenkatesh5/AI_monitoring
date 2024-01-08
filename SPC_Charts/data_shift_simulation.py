@@ -16,7 +16,7 @@ Created on Mon Nov 20 13:08:53 2023
 #    in_dist_data=cosine_in_dist_similarities,
 #    out_dist_data=cosine_out_dist_similarities,
 #    shift_start_day=20,
-#   total_days=100,
+#    total_days=100,
 #    images_per_day=500,
 #    shift_percentage=2.5  # Example percentage
 #)

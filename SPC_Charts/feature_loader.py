@@ -7,9 +7,7 @@ Created on Mon Nov 20 12:45:54 2023
 """
 
 # feature_loader.py
-# This function can be called as: 
-# In the Jupyter Notebook
-
+# This function can be called in the Jupyter Notebook as:
 # from feature_loader import load_and_divide_features
 # train_features, test_in_dist_features, test_out_dist_features = load_and_divide_features('contrastive', ytr, ytt)
 

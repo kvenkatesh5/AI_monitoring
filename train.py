@@ -62,7 +62,7 @@ def parse_options():
     id_view = views[opt.positive_dataset.replace("organ", "")[0].capitalize()]
 
     # storage files
-    opt.model_path = './saves'
+    opt.model_path = './model_saves'
     opt.model_name = '{}_{}_{}_defaulttfms_lr{}_bsz{}_nep{}_indist{}_time{}'.\
         format(opt.method, opt.base_model, opt.dataset, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")

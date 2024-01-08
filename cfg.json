@@ -1,3 +1,4 @@
 {
-    "data_dir": "/home/kesavan.venkatesh/ai_monitoring/data"
+    "data_dir": "/home/kesavan.venkatesh/ai_monitoring/data",
+    "table_path": "/home/kesavan.venkatesh/ai_monitoring/results/ood_bootstrap.csv"
 }
