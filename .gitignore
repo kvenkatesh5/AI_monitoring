@@ -11,6 +11,7 @@ numpy_files/
 debug.py
 #bash_scripts/
 notebooks/
+saves/
 
 # Files
 .DS_Store

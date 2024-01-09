@@ -4,6 +4,7 @@ Calculate features for all of the methods.
 import argparse
 import os
 import json
+from glob import glob
 
 import numpy as np
 import torch
@@ -25,6 +26,7 @@ def main():
     parser.add_argument('--autoencoder_path', type=str)
     parser.add_argument('--cnn_path', type=str)
     parser.add_argument('--ctr_path', type=str)
+    parser.add_argument('--save_path', type=str, default='numpy_files/data_splits.npz')
     opt = parser.parse_args()
 
     # Cfg
@@ -67,7 +69,7 @@ def main():
     print(f"Saved dataset as matrices at: {data_splits_path} !")
 
     # Autoencoder
-    autoencoder_load = torch.load(opt.autoencoder_path)
+    autoencoder_load = torch.load(glob(opt.autoencoder_path)[0])
     autoencoder_model = load_model(autoencoder_load["options"], mode="testing")
     autoencoder_eval = load_eval(autoencoder_model, train_set, val_set, test_set)
     autoencoder_fts_path = os.path.join(cfg["data_dir"], "../numpy_files/autoencoder_features")
@@ -79,7 +81,7 @@ def main():
     print(f"Saved autoencoder features at: {autoencoder_fts_path} !")
 
     # Supervised CNN
-    cnn_load = torch.load(opt.cnn_path)
+    cnn_load = torch.load(glob(opt.cnn_path)[0])
     cnn_model = load_model(cnn_load["options"], mode="testing")
     cnn_eval = load_eval(cnn_model, train_set, val_set, test_set)
     cnn_fts_path = os.path.join(cfg["data_dir"], "../numpy_files/cnn_features")
@@ -91,7 +93,7 @@ def main():
     print(f"Saved ood-supervised CNN features at: {cnn_fts_path} !")
 
     # Supervised Contrastive CNN
-    ctr_load = torch.load(opt.ctr_path)
+    ctr_load = torch.load(glob(opt.ctr_path)[0])
     ctr_model = load_model(ctr_load["options"], mode="testing")
     ctr_eval = load_eval(ctr_model, train_set, val_set, test_set)
     ctr_fts_path = os.path.join(cfg["data_dir"], "../numpy_files/ctr_features")
