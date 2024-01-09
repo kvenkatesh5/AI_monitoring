@@ -5,7 +5,12 @@ import argparse
 import os
 import json
 import time
+from copy import deepcopy
 
+import numpy as np
+from tqdm import tqdm
+import torch
+from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
@@ -20,6 +25,7 @@ def parse_options():
 
     # general arguments
     parser.add_argument("--use-gpus", default='all', type=str, help='gpu device numbers')
+    parser.add_argument('--model_path', type=str, default='saves')
 
     # method arguments
     parser.add_argument('--method', type=str, \
@@ -28,14 +34,15 @@ def parse_options():
     parser.add_argument('--latent_dim', type=int, default=100, help='number of latent dims')
     parser.add_argument('--pretrained', type=bool, default=False, help='pretrained weights (for supervised CNN)')
     parser.add_argument('--base_model', type=str,\
-                        choices=["resnet18"], help="base CNN architecture (for CNN-based methods)")
+                        choices=["resnet18"], default = "resnet18", help="base CNN architecture (for CNN-based methods)")
     parser.add_argument('--projection', type=str, default='mlp',
                         choices=['linear', 'mlp'], help='projection head for CLR')
     parser.add_argument('--temp', type=float, default=0.07, help="temperature for CLR loss fxn")
 
 
     # data arguments
-    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"])
+    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"], default="MedMNIST-AbdominalCT")
+    parser.add_argument('--dataset_transforms', type=str, default='default')
     parser.add_argument('--positive_dataset', type=str, default='organamnist',
                             help='which dataset is in-distribution')
 
@@ -61,10 +68,23 @@ def parse_options():
     }
     id_view = views[opt.positive_dataset.replace("organ", "")[0].capitalize()]
 
+    # set dataset transforms
+    if opt.dataset_transforms == "default":
+        dataset_transforms = transforms.Compose([
+            transforms.ToTensor(), transforms.Normalize(mean=[.5], std=[.5])
+        ])
+    else:
+        raise NotImplementedError(f"requested transform is not implemented: {opt.dataset_transforms}")
+
     # storage files
-    opt.model_path = './saves'
-    opt.model_name = '{}_{}_{}_defaulttfms_lr{}_bsz{}_nep{}_indist{}_time{}'.\
-        format(opt.method, opt.base_model, opt.dataset, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
+    if not os.path.exists(opt.model_path):
+        os.mkdir(opt.model_path)
+
+    if not os.path.exists(cfg['data_dir']):
+        os.mkdir(cfg['data_dir'])
+
+    opt.model_name = '{}_lr{}_bsz{}_nep{}_indist{}_time{}'.\
+        format(opt.method, opt.learning_rate, opt.batch_size, opt.max_epochs, id_view, time.time())
     opt.save_path = os.path.join(opt.model_path, opt.model_name + ".pt")
 
     # make options dictionary
@@ -78,13 +98,13 @@ def parse_options():
         "projection": opt.projection,
         "temp": opt.temp,
         "dataset": opt.dataset,
+        "dataset_transforms": dataset_transforms,
         "positive_dataset": opt.positive_dataset,
         "batch_size": opt.batch_size,
         "max_epochs": opt.max_epochs,
         "learning_rate": opt.learning_rate,
         "print_mode": opt.print_mode,
         "save_path": opt.save_path,
-        "model_name": opt.model_name,
     }
 
     return options
@@ -101,7 +121,6 @@ def main():
     feature_model.train_model(train_loader, val_loader)
 
     # done
-    print(f'==> Model name: {options["model_name"]} !')
     print(f'==> Model is saved at: {options["save_path"]} !')
 
 if __name__ == "__main__":

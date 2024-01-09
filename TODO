@@ -1,0 +1,7 @@
+[ ] Make sure everything runs with new updates
+[ ] download peds dataset: https://www.kaggle.com/datasets/andrewmvd/pediatric-pneumonia-chest-xray/discussion/388530
+
+https://www.kaggle.com/settings/account
+kaggle api inf
+
+kaggle datasets download -d andrewmvd/pediatric-pneumonia-chest-xray

@@ -1,9 +1,5 @@
 #!/bin/bash
-
-# Provide final model paths here
 python3 get_features.py \
-    --dataset "MedMNIST-AbdominalCT" \
-    --positive_dataset "organamnist" \
-    --autoencoder_path "./saves/conv-autoencoder_None_MedMNIST-AbdominalCT_dtfmdefault_lr0.001_bsz128_nep100_indistAxial_time1701767136.174378.pt" \
-    --cnn_path "./saves/supervised-cnn_resnet18_MedMNIST-AbdominalCT_dtfmdefault_lr0.001_bsz128_nep100_indistAxial_time1701767128.9677894.pt" \
-    --ctr_path "./saves/supervised-ctr_resnet18_MedMNIST-AbdominalCT_dtfmdefault_lr0.001_bsz128_nep100_indistAxial_time1701767133.7412488.pt" \
+    --autoencoder_path "./saves/autoencoder_lr0.001_bsz128_nep100_indistAxial_time1698727260.3633106.pt" \
+    --cnn_path "./saves/resnet18_lr0.001_bsz128_nep100_indistAxial_time1698721794.5067384.pt" \
+    --ctr_path "./saves/SupCon_resnet18_lr0.001_decay0.0001_bsz128_temp0.07_time1698727745.6544845.pt" \
