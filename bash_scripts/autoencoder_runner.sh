@@ -1,6 +1,8 @@
 #!/bin/bash
+DATASET=${1-"MedMNIST-AbdominalCT"}
+
 python3 train.py \
-    --dataset "MedMNIST-AbdominalCT" \
+    --dataset $DATASET \
     --method "conv-autoencoder" \
     --learning_rate 0.001 \
     --batch_size 128 \

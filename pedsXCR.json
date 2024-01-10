@@ -1,0 +1,5 @@
+{
+    "data_dir": "pedsCXR_data",
+    "table_path": "results/pedsCXR_ood_bootstrap.csv",
+
+}

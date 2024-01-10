@@ -41,7 +41,7 @@ def parse_options():
 
 
     # data arguments
-    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT"], default="MedMNIST-AbdominalCT")
+    parser.add_argument('--dataset', choices=["MedMNIST-AbdominalCT", "kaggle-pediatric-cxr"], default="MedMNIST-AbdominalCT")
     parser.add_argument('--dataset_transforms', type=str, default='default')
     parser.add_argument('--positive_dataset', type=str, default='organamnist',
                             help='which dataset is in-distribution')
@@ -105,6 +105,8 @@ def parse_options():
         "learning_rate": opt.learning_rate,
         "print_mode": opt.print_mode,
         "save_path": opt.save_path,
+        "peds_dataset": cfg['peds_dataset'],
+        "adult_dataset": cfg['adult_dataset']
     }
 
     return options

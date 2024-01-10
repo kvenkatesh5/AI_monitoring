@@ -1,4 +1,6 @@
 {
     "data_dir": "data",
-    "table_path": "results/ood_bootstrap.csv"
+    "table_path": "results/ood_bootstrap.csv",
+    "peds_dataset": "/gpfs_projects/brandon.nelson/AI_monitoring/Pediatric Chest X-ray Pneumonia",
+    "adult_dataset": "/gpfs_projects/brandon.nelson/AI_monitoring/NIH_CXR"
 }

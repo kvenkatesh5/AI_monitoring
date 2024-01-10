@@ -1,12 +1,15 @@
 """OOD Detection using features, code adapted from Ghada"""
 import argparse
 import json
+import os
 import random
+from pathlib import Path
 import warnings
 warnings.filterwarnings("error")
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy.spatial import distance
 from sklearn.metrics import confusion_matrix
 from scipy.linalg import pinv
@@ -217,6 +220,8 @@ def ood_statistics(tr_features, tt_features, ood_labels, metric, n=100, rule="Ru
     print(
         f"Sensitivity: {np.nanmean(sensitivity):.4f} [{(np.nanmean(sensitivity) - np.nanstd(sensitivity)):.4f}, {(np.nanmean(sensitivity) + np.nanstd(sensitivity)):.4f}]"
     )
+    # Return
+    return accuracy, specificity, sensitivity
 
 """Parse args"""
 def parse_options():
@@ -224,6 +229,7 @@ def parse_options():
 
     parser.add_argument("--metric", type=str, choices=["cosine", "mahalanobis"], help="OOD metric")
     parser.add_argument("--method", type=str, choices=["autoencoder", "cnn", "ctr"], help="method to get features per image")
+    parser.add_argument("--bootstrap", type=int, default=100, help="number of bootstrapped samples")
 
     # extract
     opt = parser.parse_args()
@@ -233,6 +239,7 @@ def parse_options():
         "metric": opt.metric,
         "method": opt.method,
         "positive_dataset": "organamnist", # hard coded
+        "bootstrap": opt.bootstrap,
         "data_dir": cfg["data_dir"]
     }
 
@@ -270,23 +277,43 @@ def main():
         raise NotImplementedError(f"Requested feature method is not implemented: {options['method']}")
     
     # Get features for all in-distribution (ID) training images
-    Ftr_ = Ftr[ytr == 1]
+    Ftr_in = Ftr[ytr == 1]
     # Compute OOD statistics using entire test set
-    # Number of bootstrap samples = 1000
-    ood_statistics(Ftr_, Ftt, 1 - ytt, options["metric"], n=1000)
+    n = options["bootstrap"]
+    accuracy, specificity, sensitivity = ood_statistics(Ftr_in, Ftt, 1 - ytt, options["metric"], n=n)
+    np.savez(
+        file=f"./numpy_files/{options['metric']}_{options['method']}_bootstrap.npz",
+        accuracy=accuracy,
+        specificity=specificity,
+        sensitivity=sensitivity,
+    )
 
-    # Visualization is available in notebook
-    # # Plot OOD chart for one particular subset
-    # ridx, num = random.randint(a=0, b=Ftt.shape[0]-101), 100
-    # Ftt_ = Ftt[ridx:(ridx+num)]
-    # ytt_ = ytt[ridx:(ridx+num)]
-    # # ood_labels_ assigns 1 to all OOD images and 0 to all ID images
-    # ood_labels_ = 1-ytt_
-    # train_distances, test_distances, train_mean, train_std, train_UCL, train_LCL = \
-    #     compute_control_limits(Ftr_, Ftt_, options["metric"])
-    # figure_pth = f"./figs-tmp/ood_{options['method']}_{options['metric']}.png"
-    # ood_visualization(test_distances, train_mean, train_UCL, train_LCL, \
-    #                   "Rule 1", ood_labels_, options["metric"], figure_pth)
+    # Add to results table
+    table_entry = {
+        "Metric": options["metric"],
+        "Method": options["method"],
+        # Accuracy
+        "Mean Accuracy": np.nanmean(accuracy),
+        "LCL Accuracy": np.nanmean(accuracy) - np.nanstd(accuracy),
+        "UCL Accuracy": np.nanmean(accuracy) + np.nanstd(accuracy),
+        # Specificity
+        "Mean Specificity": np.nanmean(specificity),
+        "LCL Specificity": np.nanmean(specificity) - np.nanstd(specificity),
+        "UCL Specificity": np.nanmean(specificity) + np.nanstd(specificity),
+        # Sensitivity
+        "Mean Sensitivity": np.nanmean(sensitivity),
+        "LCL Sensitivity": np.nanmean(sensitivity) - np.nanstd(sensitivity),
+        "UCL Sensitivity": np.nanmean(sensitivity) + np.nanstd(sensitivity),
+    }
+    if os.path.exists(cfg['table_path']):
+        df = pd.read_csv(cfg['table_path'])
+        table_entry_df = pd.DataFrame([table_entry])
+        df = pd.concat([df, table_entry_df], ignore_index=True)
+    else:
+        df = pd.DataFrame([table_entry])
+        table_path = Path(cfg['table_path'])
+        table_path.parent.mkdir(exist_ok=True, parents=True)
+    df.to_csv(cfg['table_path'], header=True, index=False)
 
 if __name__ == "__main__":
     set_seed(2001)

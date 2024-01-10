@@ -15,3 +15,9 @@ unzip pediatric-pneumonia-chest-xray
 # Instructions for the downloading the larger (23 GB) PediCXR dataset
 https://physionet.org/content/vindr-pcxr/1.0.0/
 https://physionet.org/content/vindr-pcxr/get-zip/1.0.0/
+
+# Instructions for the NIH CXR dataset
+# https://www.kaggle.com/datasets/nih-chest-xrays/data
+
+kaggle datasets download -d nih-chest-xrays/data
+unzip -d NIH_CXR data.zip
