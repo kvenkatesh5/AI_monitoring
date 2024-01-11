@@ -40,13 +40,15 @@ class CUSUMChangeDetector:
         )
         self.n_experiments = 0
 
-    def plotCUSUM(self, signal, S_hi, S_lo, h, save_plot=False):
+    def plotCUSUM(self, signal_hi, signal_lo, S_hi, S_lo, h, save_plot=False):
         """
         Plot the cumulative sum of positive and negative changes
         Parameters:
-        - signal : is this the cumulative sum of changes in mean?
-        - S_hi   : CUSUM of positive changes
-        - S_lo   : CUSUM of negative changes
+        - signal_hi : Change-points in the CUSUM of positive changes
+        - signal_lo : Change-points in the CUSUM of negative changes
+        - S_hi      : CUSUM of positive changes
+        - S_lo      : CUSUM of negative changes
+        - h         : Control limit or threshold
         """
         fig, ax = plt.subplots(figsize=(15, 6))
 
@@ -54,8 +56,8 @@ class CUSUMChangeDetector:
         ax.plot(S_lo, label='Low Side CUSUM', color='green')
         ax.axhline(y=h, color='black', linestyle='--', linewidth=2, label='Threshold (+h)')
         ax.axhline(y=-h, color='black', linestyle='--', linewidth=2, label='Threshold (-h)')
-        ax.scatter(signal, [S_hi[i] for i in signal], color='black', zorder=5, label='Detected Shift')
-        ax.scatter(signal, [S_lo[i] for i in signal], color='black', zorder=5)
+        ax.scatter(signal_hi, [S_hi[i] for i in signal_hi], color='black', zorder=5, label='Detected Shift') 
+        ax.scatter(signal_lo, [S_lo[i] for i in signal_lo], color='black', zorder=5)
 
         # Indicate the first shift point
         ax.axvline(x=self.pre_change_days, color='purple', linestyle='--', label='First Shift')  # Purple line for shift start
@@ -98,7 +100,7 @@ class CUSUMChangeDetector:
         signal_lo = np.where(S_lo < -h)[0]
         signal = np.unique(np.concatenate((signal_hi, signal_lo)))
 
-        return signal, S_hi, S_lo
+        return signal_hi, signal_lo, S_hi, S_lo
 
 
     def changeDetection(self, CUSUM_data_average_day, pre_change_days, total_days, control_limit, k_th, save_plot=False):
@@ -132,11 +134,11 @@ class CUSUMChangeDetector:
         DetectionDelays = []
 
         # Call the CUSUM function
-        signal, S_hi, S_lo = self.computeCUSUM(CUSUM_data_average_day, mu_in, k, h)
+        signal_hi, signal_lo, S_hi, S_lo = self.computeCUSUM(CUSUM_data_average_day, mu_in, k, h)
 
         # Plot the CUSUM positive and negative changes
         # Call plot function here
-        self.plotCUSUM(signal, S_hi, S_lo, h, save_plot)
+        self.plotCUSUM(signal_hi, signal_lo, S_hi, S_lo, h, save_plot)
 
         # Calculate False Positives, True Positives, and Detection Delay
         for i in range(pre_change_days):
