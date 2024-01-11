@@ -158,7 +158,7 @@ class CUSUMChangeDetector:
 
         # Append to summary dataframe
         self.summary_table.loc[self.n_experiments] = [
-            k_th, control_limit, len(FalsePos), len(TruePos), average_detection_delay,\
+            k_th, control_limit, len(FalsePos), len(AvgDD), average_detection_delay,\
             MTBFA, FalseAlarmRate
         ]
         self.n_experiments += 1
