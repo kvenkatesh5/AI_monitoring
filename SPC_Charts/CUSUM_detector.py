@@ -62,7 +62,7 @@ class CUSUMChangeDetector:
         # Indicate the first shift point
         ax.axvline(x=self.pre_change_days, color='purple', linestyle='--', label='First Shift')  # Purple line for shift start
         # Indicate the second shift point
-        #ax.axvline(x=self.total_days, color='purple', linestyle='--', label='Second Shift')  # Purple line for shift start
+        # ax.axvline(x=self.total_days, color='purple', linestyle='--', label='Second Shift')  # Purple line for shift start
 
         #ax.set_title(f'Processing for k = {k}')
         ax.set_facecolor('white')  # White background
