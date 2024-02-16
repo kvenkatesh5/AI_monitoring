@@ -7,6 +7,7 @@ fenv/
 venv/
 .ipynb_checkpoints/
 numpy_files/
+*.csv
 # figs/
 debug.py
 #bash_scripts/

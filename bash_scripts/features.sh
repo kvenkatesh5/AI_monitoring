@@ -1,4 +1,6 @@
 #!/bin/bash
+DATASET=${1-"MedMNIST-AbdominalCT"}
+
 python3 get_features.py \
     --dataset "MedMNIST-AbdominalCT" \
     --positive_dataset "organamnist" \

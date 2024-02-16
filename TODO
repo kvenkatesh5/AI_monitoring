@@ -9,3 +9,15 @@ kaggle api inf
 kaggle datasets download -d andrewmvd/pediatric-pneumonia-chest-xray
 
 [ ] modularize code and add config files so its easier to switch in and out datasets
+
+
+----
+Ghadha's code
+
+1. conda install python 3.11 -y
+2. conda install conda install anaconda::cudatoolkit -y #cuda 11.8
+3. conda install tensorflow==2.14.*
+
+----
+
+when code finishes take features and run through CXR_SPC_Simulation.ipynb

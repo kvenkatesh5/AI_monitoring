@@ -1,4 +1,6 @@
 #!/bin/bash
+DATASET=${1-"MedMNIST-AbdominalCT"}
+
 python3  train.py \
     --dataset "MedMNIST-AbdominalCT" \
     --method "supervised-ctr" \

@@ -116,8 +116,8 @@ def main():
 
     train_set, val_set, test_set = load_data(options)
 
-    train_loader = DataLoader(train_set, batch_size=options["batch_size"], shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=options["batch_size"], shuffle=True)
+    train_loader = DataLoader(train_set, batch_size=options["batch_size"], shuffle=True, pin_memory=True)
+    val_loader = DataLoader(val_set, batch_size=options["batch_size"], shuffle=True, pin_memory=True)
 
     feature_model = load_model(options)
     feature_model.train_model(train_loader, val_loader)

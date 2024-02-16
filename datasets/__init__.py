@@ -50,18 +50,21 @@ def load_data(options: dict):
             val_tfms = TwoCropTransform(val_tfms)
         # train/val/test datasets
         train_set =  PediatricCXRDataset(
+            data_dir='data',
             peds_data_dir=options["peds_dataset"],
             adult_data_dir=options["adult_dataset"],
             tfms=train_tfms,
             split="train"
         )
         val_set = PediatricCXRDataset(
+            data_dir='data',
             peds_data_dir=options["peds_dataset"],
             adult_data_dir=options["adult_dataset"],
             tfms=val_tfms,
             split="val"
         )
         test_set = PediatricCXRDataset(
+            data_dir='data',
             peds_data_dir=options["peds_dataset"],
             adult_data_dir=options["adult_dataset"],
             tfms=test_tfms,
@@ -73,10 +76,10 @@ def load_data(options: dict):
         raise NotImplementedError(f"requested dataset is not available: {options['dataset']}")
 
 # reformat dataset into X,y matrix/vector pair
-def matrixify(dset, label_mode="cheap-supervised"):
+def matrixify(dset, label_mode="cheap-supervised", sz=(28, 28)):
     if label_mode!="cheap-supervised":
         raise NotImplementedError("label mode not implemented: {}".format(label_mode))
-    X = np.empty((len(dset), 28*28))
+    X = np.empty((len(dset), sz[0]*sz[1]))
     y = np.empty((len(dset)))
     for i in tqdm(range(len(dset))):
         image, label = dset[i]

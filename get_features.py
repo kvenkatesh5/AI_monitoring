@@ -57,9 +57,9 @@ def main():
     })
 
     # Matrixify datasets
-    Xtr, ytr = matrixify(train_set)
-    Xvl, yvl = matrixify(val_set)
-    Xtt, ytt = matrixify(test_set)
+    Xtr, ytr = matrixify(train_set, sz=torch.squeeze(train_set[0].shape))
+    Xvl, yvl = matrixify(val_set, sz=torch.squeeze(val_set[0].shape))
+    Xtt, ytt = matrixify(test_set, sz=torch.squeeze(test_set[0].shape))
     data_splits_path = os.path.join(cfg["data_dir"], "../numpy_files/data_splits")
     np.savez(data_splits_path,
         Xtr=Xtr, ytr=ytr,
