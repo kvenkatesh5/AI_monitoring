@@ -11,7 +11,7 @@ numpy_files/
 # figs/
 debug.py
 #bash_scripts/
-notebooks/
+notebooks/__pycache__
 saves/
 
 # Files
